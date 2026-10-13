@@ -1,0 +1,53 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables & Authentication Credentials
+.env
+.env.local
+.env.*.local
+credentials.json
+service_account.json
+*.pem
+*.key
+
+# Geospatial Raster & Dataset Artifacts
+RAW Data/
+data/raw/
+*.tif
+*.tiff
+*.aux.xml
+*.tfw
+*.npy
+*.npz
+
+# Generated chips and output caches
+Chips/
+data/chips/
+.temp_gse_chunks/
+**/.temp_gse_chunks/
+
+# Preserve directory placeholders
+!data/raw/.gitkeep
+!data/chips/.gitkeep
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+
+# IDEs & System Files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
