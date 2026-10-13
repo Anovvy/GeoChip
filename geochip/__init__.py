@@ -1,28 +1,40 @@
-﻿"""
-GeoChip: Automated Pipeline for Satellite Imagery & Foundation Model Embeddings.
+"""
+GeoChip: Interactive Geospatial Earth Observation Pipeline & Roboflow Ingestion.
 
-Scrape, tile, and upload paired Sentinel-2 mosaics and Google Satellite Embeddings
-(AlphaEarth 64-D) to Roboflow for computer vision annotation workflows.
+Download multi-sensor satellite imagery (Sentinel-2, Landsat 8/9, Sentinel-1 SAR, MODIS, SRTM DEM),
+generate customizable georeferenced chips, and upload annotation batches to Roboflow.
 """
 
-__version__ = "0.1.0"
+__version__ = "2.0.0"
 
-from .auth import init_earth_engine, test_earth_engine_connection
+from .auth import init_earth_engine, login_flow, test_earth_engine_connection
+from .datasets import DATASETS, COMPOSITE_METHODS
 from .downloader import (
     load_aoi_geometry,
-    process_sentinel2_mosaic,
-    process_satellite_embeddings,
+    interactive_download_workflow,
 )
-from .tiler import create_paired_chips, generate_gse_rgb
-from .uploader import upload_chips_to_roboflow
+from .tiler import (
+    create_single_raster_chips,
+    interactive_chipping_workflow,
+    CHIP_SIZES,
+)
+from .uploader import (
+    upload_chips_to_roboflow,
+    interactive_upload_flow,
+)
 
 __all__ = [
+    "__version__",
     "init_earth_engine",
+    "login_flow",
     "test_earth_engine_connection",
+    "DATASETS",
+    "COMPOSITE_METHODS",
     "load_aoi_geometry",
-    "process_sentinel2_mosaic",
-    "process_satellite_embeddings",
-    "create_paired_chips",
-    "generate_gse_rgb",
+    "interactive_download_workflow",
+    "create_single_raster_chips",
+    "interactive_chipping_workflow",
+    "CHIP_SIZES",
     "upload_chips_to_roboflow",
+    "interactive_upload_flow",
 ]

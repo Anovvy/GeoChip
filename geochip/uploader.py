@@ -1,11 +1,28 @@
-﻿import os
+"""
+GeoChip Roboflow Batch Annotation Uploader.
+Uploads task chip folders as distinct annotation batches into Roboflow projects.
+"""
+
+import os
 import sys
 import argparse
 from pathlib import Path
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-# Load environment variables
-load_dotenv()
+from .ui import (
+    select,
+    prompt_input,
+    prompt_confirm,
+    print_step,
+    print_success,
+    print_error,
+    print_warning,
+    print_info,
+)
 
 
 def clean_roboflow_id(val):
@@ -43,90 +60,57 @@ def save_credentials_to_env(api_key, workspace_id, project_id):
 
     with open(".env", "w") as f:
         f.write("\n".join(env_lines) + "\n")
-    print("[OK] Roboflow credentials saved to '.env'")
+    print_success("Kredensial Roboflow berhasil disimpan ke '.env'")
 
 
 def upload_chips_to_roboflow(
-    aoi_name="AOI-1",
-    target_type="Sentinel",
-    task_name="all",
-    base_dir="data/chips",
+    chips_dir,
     api_key=None,
     workspace_id=None,
-    project_id=None
+    project_id=None,
+    task_name="all"
 ):
-    """Upload task chip folders to Roboflow as organized Annotation Batches."""
+    """Core upload engine that pushes batch folders to Roboflow project."""
+    chips_dir = Path(chips_dir)
+    if not chips_dir.exists():
+        print_error(f"Direktori chip '{chips_dir}' tidak ditemukan!")
+        return False
+
     env_key, env_ws, env_proj = get_roboflow_credentials()
     api_key = api_key or env_key
     workspace_id = workspace_id or env_ws
     project_id = project_id or env_proj
 
-    print("=" * 60)
-    print("  ROBOFLOW BATCH UPLOADER")
-    print("=" * 60)
-
-    # Prompt if credentials missing
     if not api_key or not workspace_id or not project_id:
-        print("\n[ATTENTION] Roboflow credentials are incomplete!")
-        print("Please provide credentials (will be automatically saved to .env):\n")
-        if not api_key:
-            api_key = input("1. Enter Roboflow Private API Key: ").strip()
-        if not workspace_id:
-            workspace_id = input("2. Enter Roboflow Workspace ID: ").strip()
-        if not project_id:
-            project_id = input("3. Enter Roboflow Project/Dataset ID: ").strip()
+        print_error("Kredensial Roboflow tidak lengkap!")
+        return False
 
-        if api_key and workspace_id and project_id:
-            save_credentials_to_env(api_key, workspace_id, project_id)
-        else:
-            print("[FAILED] Incomplete credentials provided. Aborting upload.")
-            sys.exit(1)
-
-    # Connect to Roboflow
+    print_info(f"Menghubungkan ke Roboflow ({workspace_id}/{project_id})...")
     try:
         from roboflow import Roboflow
         rf = Roboflow(api_key=api_key)
         workspace = rf.workspace(workspace_id)
         project = workspace.project(project_id)
-        print(f"[OK] Successfully connected to Roboflow: '{workspace_id}/{project_id}'")
+        print_success(f"Berhasil tersambung ke project Roboflow: '{project_id}'")
     except Exception as e:
-        print(f"[FAILED] Could not connect to Roboflow: {e}")
-        print("\nTroubleshooting:")
-        print("1. Verify your Private API Key (Roboflow > Settings > Workspaces > Roboflow API).")
-        print("2. Ensure Workspace and Project exist on Roboflow.")
-        sys.exit(1)
+        print_error(f"Gagal menghubungkan ke Roboflow: {e}")
+        return False
 
-    # Resolve chips directory
-    candidate_dirs = [
-        Path(base_dir) / aoi_name / target_type,
-        Path("Chips") / aoi_name / target_type,
-    ]
-    chips_dir = None
-    for cd in candidate_dirs:
-        if cd.exists():
-            chips_dir = cd
-            break
-
-    if not chips_dir:
-        print(f"[FAILED] Directory for '{aoi_name}/{target_type}' not found in '{base_dir}' or 'Chips'.")
-        print("Please run the chipping step first: python -m geochip.tiler --aoi {aoi_name}")
-        sys.exit(1)
-
-    # Discover task folders
+    # Find task folders
     if task_name == "all":
         task_folders = sorted([f for f in chips_dir.iterdir() if f.is_dir() and f.name.startswith("task")])
     else:
         target_folder = chips_dir / task_name
         if not target_folder.exists():
-            print(f"[FAILED] Specified task folder '{target_folder}' does not exist.")
-            sys.exit(1)
+            print_error(f"Folder task '{target_folder}' tidak ditemukan.")
+            return False
         task_folders = [target_folder]
 
     if not task_folders:
-        print(f"[FAILED] No task directories found inside '{chips_dir}'.")
-        sys.exit(1)
+        print_warning(f"Tidak ada folder task batch di dalam '{chips_dir}'.")
+        return False
 
-    print(f"\n[SCAN] Found {len(task_folders)} task folders to upload from: {chips_dir}")
+    print_info(f"Ditemukan {len(task_folders)} folder batch task yang siap di-upload.\n")
 
     total_uploaded = 0
     total_skipped = 0
@@ -134,7 +118,7 @@ def upload_chips_to_roboflow(
     for task_folder in task_folders:
         batch_name = task_folder.name
         img_files = sorted(list(task_folder.glob("*.png")) + list(task_folder.glob("*.jpg")))
-        print(f"\n---> Uploading Batch '{batch_name}' ({len(img_files)} images)...")
+        print(f"\n---> Mengunggah Batch: {batch_name} ({len(img_files)} citra)...")
 
         for img_path in img_files:
             try:
@@ -147,40 +131,107 @@ def upload_chips_to_roboflow(
                 total_uploaded += 1
             except Exception as e:
                 err_msg = str(e)
-                if "Duplicate image" in err_msg or "already exists" in err_msg.lower():
-                    print(f"      [SKIP] Image already exists: {img_path.name}")
+                if "duplicate" in err_msg.lower() or "already exists" in err_msg.lower():
+                    print(f"      [SKIP] {img_path.name} (sudah pernah di-upload sebelumnya)")
                     total_skipped += 1
                 else:
-                    print(f"      [WARN] Failed to upload {img_path.name}: {err_msg}")
+                    print(f"      [ERROR] Gagal mengunggah {img_path.name}: {err_msg}")
 
-    print("\n" + "=" * 60)
-    print("  ROBOFLOW BATCH UPLOAD COMPLETED!")
-    print(f"  Successfully Uploaded: {total_uploaded} images")
-    print(f"  Skipped (Duplicates):  {total_skipped} images")
-    print("  Go to your Roboflow dashboard > Annotate tab to assign batches!")
-    print("=" * 60)
+    print_success(f"\nSelesai! Berhasil mengunggah {total_uploaded} citra (Dilewati: {total_skipped}).")
+    print_info(f"Buka https://app.roboflow.com/{workspace_id}/{project_id}/annotate untuk mulai anotasi.")
+    return True
+
+
+def interactive_upload_flow(chips_dir_path=None):
+    """Interactive Roboflow upload flow."""
+    print_step("Roboflow Batch Uploader")
+
+    # 1. Resolve chips folder
+    if not chips_dir_path:
+        base_chips = Path("data/chips")
+        if not base_chips.exists() or not any(base_chips.iterdir()):
+            print_error("Tidak ada direktori chip di 'data/chips/'!")
+            return
+        candidate_dirs = sorted([d for d in base_chips.iterdir() if d.is_dir()])
+        if not candidate_dirs:
+            print_error("Tidak ada folder chip yang ditemukan.")
+            return
+
+        choices = [{"name": d.name, "desc": f"Path: {d}"} for d in candidate_dirs]
+        idx = select("Pilih Folder Dataset Chip yang Ingin Di-upload:", choices)
+        chips_dir_path = candidate_dirs[idx]
+
+    chips_dir = Path(chips_dir_path)
+    print_info(f"Folder target: {chips_dir}")
+
+    # 2. Check / input credentials
+    api_key, workspace_id, project_id = get_roboflow_credentials()
+
+    if not api_key:
+        print_info("Roboflow Private API Key belum tersimpan di .env.")
+        api_key = prompt_input("Masukkan Roboflow Private API Key")
+    if not workspace_id:
+        workspace_id = prompt_input("Masukkan Roboflow Workspace Slug/ID")
+    if not project_id:
+        project_id = prompt_input("Masukkan Target Roboflow Project ID")
+
+    # Ask if user wants to change target project
+    print_info(f"Konfigurasi aktif: Workspace='{workspace_id}' | Project='{project_id}'")
+    if prompt_confirm("Gunakan target project ini?", default=True):
+        target_project = project_id
+    else:
+        target_project = prompt_input("Masukkan nama/ID project Roboflow alternatif", default=project_id)
+
+    # Save to .env
+    save_credentials_to_env(api_key, workspace_id, target_project)
+
+    # 3. Task choice (all or specific)
+    task_options = [
+        {"name": "📦 Upload Semua Batch Task Sekaligus", "action": "all"},
+        {"name": "🎯 Pilih Satu Batch Task Spesifik", "action": "specific"},
+    ]
+    t_idx = select("Pilih Lingkup Upload:", task_options)
+    task_mode = task_options[t_idx]["action"]
+
+    if task_mode == "specific":
+        sub_tasks = sorted([f.name for f in chips_dir.iterdir() if f.is_dir() and f.name.startswith("task")])
+        if not sub_tasks:
+            print_error(f"Tidak ada subfolder task di {chips_dir}")
+            return
+        st_idx = select("Pilih Task Batch:", sub_tasks)
+        task_name = sub_tasks[st_idx]
+    else:
+        task_name = "all"
+
+    # 4. Execute upload
+    upload_chips_to_roboflow(
+        chips_dir=chips_dir,
+        api_key=api_key,
+        workspace_id=workspace_id,
+        project_id=target_project,
+        task_name=task_name
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Upload Chip Batches to Roboflow for Annotation")
-    parser.add_argument("--aoi", type=str, default="AOI-1", help="Target AOI identifier (default: AOI-1)")
-    parser.add_argument("--target-type", type=str, choices=["Sentinel", "GSE"], default="Sentinel", help="Target imagery set to upload: 'Sentinel' or 'GSE' (default: Sentinel)")
-    parser.add_argument("--task", type=str, default="all", help="Target task folder or 'all' (default: all)")
-    parser.add_argument("--base-dir", type=str, default="data/chips", help="Base directory containing chip data (default: data/chips)")
-    parser.add_argument("--api-key", type=str, default=None, help="Roboflow Private API Key")
-    parser.add_argument("--workspace", type=str, default=None, help="Roboflow Workspace ID")
-    parser.add_argument("--project", type=str, default=None, help="Roboflow Project ID")
+    parser = argparse.ArgumentParser(description="GeoChip Roboflow Uploader")
+    parser.add_argument("--chips-dir", type=str, default=None, help="Directory containing chip tasks")
+    parser.add_argument("--api-key", type=str, default=None, help="Roboflow API Key")
+    parser.add_argument("--workspace", type=str, default=None, help="Roboflow Workspace")
+    parser.add_argument("--project", type=str, default=None, help="Roboflow Project")
+    parser.add_argument("--task", type=str, default="all", help="Task name or 'all'")
     args = parser.parse_args()
 
-    upload_chips_to_roboflow(
-        aoi_name=args.aoi,
-        target_type=args.target_type,
-        task_name=args.task,
-        base_dir=args.base_dir,
-        api_key=args.api_key,
-        workspace_id=args.workspace,
-        project_id=args.project
-    )
+    if args.chips_dir:
+        upload_chips_to_roboflow(
+            chips_dir=args.chips_dir,
+            api_key=args.api_key,
+            workspace_id=args.workspace,
+            project_id=args.project,
+            task_name=args.task
+        )
+    else:
+        interactive_upload_flow()
 
 
 if __name__ == "__main__":

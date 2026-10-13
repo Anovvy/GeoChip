@@ -1,73 +1,131 @@
-﻿import sys
+"""
+GeoChip Unified CLI Controller.
+Provides interactive menu interface (Antigravity/Claude Code style)
+and standard command-line argument execution.
+"""
+
+import sys
 import argparse
 from pathlib import Path
 
-from .auth import login_flow, test_earth_engine_connection
-from .downloader import (
-    load_aoi_geometry,
-    process_sentinel2_mosaic,
-    process_satellite_embeddings,
-    init_earth_engine,
+from .ui import (
+    print_banner,
+    select,
+    print_info,
+    print_success,
+    print_warning,
+    print_error,
 )
-from .tiler import create_paired_chips
-from .uploader import upload_chips_to_roboflow
+from .auth import login_flow, test_earth_engine_connection
+from .downloader import interactive_download_workflow
+from .tiler import interactive_chipping_workflow, create_single_raster_chips
+from .uploader import interactive_upload_flow, upload_chips_to_roboflow
+
+
+def interactive_main_menu():
+    """Main interactive terminal loop."""
+    print_banner()
+
+    main_menu_choices = [
+        {
+            "name": "📥 Workflow 1: Download Data Satelit (Earth Engine)",
+            "desc": "Pilih AOI, Dataset, Rentang Tanggal, Filter Awan, List Scene, Single/Composite",
+            "action": "download",
+        },
+        {
+            "name": "✂️  Workflow 2: Chipping & Upload ke Roboflow",
+            "desc": "Pilih Raw Raster, Ukuran Clip (160/320/640/1280 px), Batch Task, Roboflow Upload",
+            "action": "chip",
+        },
+        {
+            "name": "🔑 Setup Autentikasi GEE (OAuth Browser Option A)",
+            "desc": "Login ke Google Earth Engine menggunakan akun Google via browser",
+            "action": "auth",
+        },
+        {
+            "name": "❌ Keluar",
+            "desc": "Tutup aplikasi GeoChip",
+            "action": "exit",
+        },
+    ]
+
+    while True:
+        idx = select(
+            "Pilih Workflow yang Ingin Dijalankan:",
+            main_menu_choices,
+            default_index=0
+        )
+        action = main_menu_choices[idx]["action"]
+
+        if action == "download":
+            try:
+                interactive_download_workflow()
+            except KeyboardInterrupt:
+                print_warning("\nWorkflow Download dibatalkan oleh pengguna.")
+            except Exception as e:
+                print_error(f"\nTerjadi kesalahan saat download: {e}")
+
+        elif action == "chip":
+            try:
+                interactive_chipping_workflow()
+            except KeyboardInterrupt:
+                print_warning("\nWorkflow Chipping dibatalkan oleh pengguna.")
+            except Exception as e:
+                print_error(f"\nTerjadi kesalahan saat chipping: {e}")
+
+        elif action == "auth":
+            try:
+                login_flow()
+            except KeyboardInterrupt:
+                print_warning("\nProses autentikasi dibatalkan.")
+            except Exception as e:
+                print_error(f"\nTerjadi kesalahan saat autentikasi: {e}")
+
+        elif action == "exit":
+            print_info("Terima kasih telah menggunakan GeoChip. Sampai jumpa!")
+            sys.exit(0)
+
+        print("\n" + "-" * 60)
 
 
 def main():
+    """Main CLI entry point supporting both arguments and interactive mode."""
     parser = argparse.ArgumentParser(
         prog="geochip",
-        description="GeoChip CLI: Satellite Imagery & Embedding Ingestion, Chipping, and Annotation Pipeline",
+        description="GeoChip CLI: Geospatial Satellite Imagery Ingestion, Chipping, and Annotation Pipeline",
     )
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
     # 1. Auth subcommand
-    auth_parser = subparsers.add_parser("auth", help="Manage Google Earth Engine authentication")
+    auth_parser = subparsers.add_parser("auth", help="Google Earth Engine OAuth setup & diagnostics")
     auth_parser.add_argument("--login", action="store_true", help="Launch interactive browser OAuth login")
     auth_parser.add_argument("--project", type=str, default=None, help="Google Cloud Project ID")
 
     # 2. Download subcommand
-    dl_parser = subparsers.add_parser("download", help="Download Sentinel-2 mosaics and Google Satellite Embeddings")
-    dl_parser.add_argument("--aoi", type=str, default="data/aoi/AOI-1.shp", help="Path to AOI shapefile")
-    dl_parser.add_argument("--mode", type=str, choices=["copernicus-q2", "annual", "window"], default="copernicus-q2", help="Sentinel-2 composite mode")
-    dl_parser.add_argument("--year", type=int, default=2025, help="Target data year (default: 2025)")
-    dl_parser.add_argument("--date", type=str, default="2025-04-01", help="Target date for window mode")
-    dl_parser.add_argument("--window", type=int, default=15, help="Window days (default: 15)")
-    dl_parser.add_argument("--output-dir", type=str, default="data/raw", help="Output directory")
-    dl_parser.add_argument("--force", action="store_true", help="Force re-download all datasets")
-    dl_parser.add_argument("--force-s2", action="store_true", help="Force re-download Sentinel-2")
-    dl_parser.add_argument("--force-gse", action="store_true", help="Force re-download GSE")
+    dl_parser = subparsers.add_parser("download", help="Download satellite rasters from GEE")
+    dl_parser.add_argument("--interactive", action="store_true", help="Launch interactive download UI")
+    dl_parser.add_argument("--aoi", type=str, default=None, help="Path to AOI shapefile")
 
     # 3. Chip subcommand
-    chip_parser = subparsers.add_parser("chip", help="Slice rasters into paired 160x160 chips and PCA previews")
-    chip_parser.add_argument("--aoi", type=str, default="AOI-1", help="AOI identifier name (e.g., AOI-1)")
-    chip_parser.add_argument("--s2-path", type=str, default=None, help="Explicit Sentinel-2 raster path")
-    chip_parser.add_argument("--gse-path", type=str, default=None, help="Explicit GSE raster path")
-    chip_parser.add_argument("--output-base", type=str, default="data/chips", help="Output directory for chips")
-    chip_parser.add_argument("--chip-size", type=int, default=160, help="Tile size in pixels (default: 160)")
-    chip_parser.add_argument("--chips-per-task", type=int, default=5, help="Chips per annotation task batch (default: 5)")
-    chip_parser.add_argument("--no-raw-npy", action="store_true", help="Disable saving 64-band GSE .npy files")
+    chip_parser = subparsers.add_parser("chip", help="Slice raster into chip tiles & manifest")
+    chip_parser.add_argument("--raster", type=str, default=None, help="Path to input GeoTIFF raster")
+    chip_parser.add_argument("--chip-size", type=int, default=640, choices=[160, 320, 640, 1280], help="Chip tile size")
+    chip_parser.add_argument("--chips-per-task", type=int, default=5, help="Number of chips per task batch")
 
     # 4. Upload subcommand
-    upload_parser = subparsers.add_parser("upload", help="Upload task chip batches to Roboflow")
-    upload_parser.add_argument("--aoi", type=str, default="AOI-1", help="AOI identifier (default: AOI-1)")
-    upload_parser.add_argument("--target-type", type=str, choices=["Sentinel", "GSE"], default="Sentinel", help="Target set (default: Sentinel)")
-    upload_parser.add_argument("--task", type=str, default="all", help="Task batch folder or 'all' (default: all)")
-    upload_parser.add_argument("--base-dir", type=str, default="data/chips", help="Base directory of chips")
-    upload_parser.add_argument("--api-key", type=str, default=None, help="Roboflow Private API Key")
-    upload_parser.add_argument("--workspace", type=str, default=None, help="Roboflow Workspace ID")
-    upload_parser.add_argument("--project", type=str, default=None, help="Roboflow Project ID")
-
-    # 5. Pipeline subcommand (end-to-end)
-    pipe_parser = subparsers.add_parser("pipeline", help="Run end-to-end pipeline: download -> chip -> upload")
-    pipe_parser.add_argument("--aoi-path", type=str, default="data/aoi/AOI-1.shp", help="Path to AOI shapefile")
-    pipe_parser.add_argument("--year", type=int, default=2025, help="Target year")
-    pipe_parser.add_argument("--upload", action="store_true", help="Also upload to Roboflow automatically upon completion")
+    upload_parser = subparsers.add_parser("upload", help="Upload task batches to Roboflow")
+    upload_parser.add_argument("--chips-dir", type=str, default=None, help="Chips directory")
+    upload_parser.add_argument("--api-key", type=str, default=None, help="Roboflow API Key")
+    upload_parser.add_argument("--workspace", type=str, default=None, help="Roboflow Workspace")
+    upload_parser.add_argument("--project", type=str, default=None, help="Roboflow Project")
+    upload_parser.add_argument("--task", type=str, default="all", help="Task name or 'all'")
 
     args = parser.parse_args()
 
+    # If no arguments provided, launch interactive Antigravity/Claude Code menu
     if not args.command:
-        parser.print_help()
-        sys.exit(0)
+        interactive_main_menu()
+        return
 
     if args.command == "auth":
         if args.login:
@@ -76,78 +134,29 @@ def main():
             test_earth_engine_connection()
 
     elif args.command == "download":
-        out_dir = Path(args.output_dir)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        aoi_stem = Path(args.aoi).stem
-
-        s2_path = out_dir / f"Sentinel2M-{args.year}-{aoi_stem}_TrueColor.tif"
-        gse_path = out_dir / f"GSE-{args.year}-{aoi_stem}.tif"
-
-        init_earth_engine()
-        aoi_geom, _, aoi_bbox = load_aoi_geometry(args.aoi)
-
-        process_sentinel2_mosaic(
-            aoi_geom=aoi_geom,
-            output_path=str(s2_path),
-            mode=args.mode,
-            target_year=args.year,
-            target_date_str=args.date,
-            window_days=args.window,
-            force=(args.force or args.force_s2)
-        )
-        process_satellite_embeddings(
-            aoi_geom=aoi_geom,
-            output_path=str(gse_path),
-            bbox=aoi_bbox,
-            target_year=args.year,
-            force=(args.force or args.force_gse)
-        )
+        interactive_download_workflow()
 
     elif args.command == "chip":
-        create_paired_chips(
-            aoi_name=args.aoi,
-            s2_path=args.s2_path,
-            gse_path=args.gse_path,
-            output_base=args.output_base,
-            chip_size=args.chip_size,
-            chips_per_task=args.chips_per_task,
-            save_raw_gse_npy=not args.no_raw_npy,
-        )
+        if args.raster:
+            create_single_raster_chips(
+                raster_path=args.raster,
+                chip_size=args.chip_size,
+                chips_per_task=args.chips_per_task
+            )
+        else:
+            interactive_chipping_workflow()
 
     elif args.command == "upload":
-        upload_chips_to_roboflow(
-            aoi_name=args.aoi,
-            target_type=args.target_type,
-            task_name=args.task,
-            base_dir=args.base_dir,
-            api_key=args.api_key,
-            workspace_id=args.workspace,
-            project_id=args.project
-        )
-
-    elif args.command == "pipeline":
-        aoi_stem = Path(args.aoi_path).stem
-        print("=" * 60)
-        print(f"  EXECUTING FULL GEOCHIP PIPELINE FOR {aoi_stem}")
-        print("=" * 60)
-
-        # 1. Download
-        out_dir = Path("data/raw")
-        out_dir.mkdir(parents=True, exist_ok=True)
-        s2_path = out_dir / f"Sentinel2M-{args.year}-{aoi_stem}_TrueColor.tif"
-        gse_path = out_dir / f"GSE-{args.year}-{aoi_stem}.tif"
-
-        init_earth_engine()
-        aoi_geom, _, aoi_bbox = load_aoi_geometry(args.aoi_path)
-        process_sentinel2_mosaic(aoi_geom, str(s2_path), target_year=args.year)
-        process_satellite_embeddings(aoi_geom, str(gse_path), bbox=aoi_bbox, target_year=args.year)
-
-        # 2. Chip
-        create_paired_chips(aoi_name=aoi_stem, s2_path=str(s2_path), gse_path=str(gse_path), output_base="data/chips")
-
-        # 3. Optional Upload
-        if args.upload:
-            upload_chips_to_roboflow(aoi_name=aoi_stem, target_type="Sentinel", base_dir="data/chips")
+        if args.chips_dir:
+            upload_chips_to_roboflow(
+                chips_dir=args.chips_dir,
+                api_key=args.api_key,
+                workspace_id=args.workspace,
+                project_id=args.project,
+                task_name=args.task
+            )
+        else:
+            interactive_upload_flow()
 
 
 if __name__ == "__main__":

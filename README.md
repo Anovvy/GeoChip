@@ -1,14 +1,14 @@
-﻿# 🛰️ GeoChip
+# 🛰️ GeoChip
 
 <p align="center">
-  <b>Automated Geospatial Pipeline for Sentinel-2 Imagery & Google Satellite Embeddings Ingestion, Paired Chipping, and Roboflow Annotation</b>
+  <b>Interactive Geospatial Pipeline for Multi-Satellite Earth Observation Ingestion, Single-Raster Chipping, and Roboflow Annotation Batches</b>
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.9%2B-blue.svg" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
-  <img src="https://img.shields.io/badge/Google_Earth_Engine-GEE-red.svg" alt="Earth Engine">
-  <img src="https://img.shields.io/badge/Copernicus-Sentinel--2-orange.svg" alt="Sentinel-2">
+  <img src="https://img.shields.io/badge/Google_Earth_Engine-OAuth_Option_A-red.svg" alt="Earth Engine">
+  <img src="https://img.shields.io/badge/Satellites-Sentinel--2_|_Landsat_|_Sentinel--1_SAR_|_MODIS_|_DEM-orange.svg" alt="Multi-Satellite">
   <img src="https://img.shields.io/badge/Roboflow-Annotation_Pipeline-purple.svg" alt="Roboflow">
 </p>
 
@@ -16,41 +16,52 @@
 
 ## 📌 Overview
 
-**GeoChip** is a production-ready geospatial data preparation pipeline built for computer vision practitioners and remote sensing researchers. It automates the end-to-end workflow from fetching satellite rasters and foundation model embeddings to generating synchronized, georeferenced image tiles ready for annotation.
+**GeoChip** is an interactive, production-grade geospatial data preparation and computer vision pipeline designed for remote sensing engineers, geospatial data scientists, and ML practitioners. 
 
-### Key Highlights
-- **Cloud-Free Sentinel-2 Mosaics (10m)**: Implements the official Copernicus Browser Quarterly Mosaic algorithm (Q2, 25th percentile / first quartile reducer) to eliminate haze and cloud artifacts, exported directly as clean True Color UInt8 GeoTIFFs (~1–3 MB).
-- **Google Satellite Embeddings (AlphaEarth 64-D, 10m)**: Seamlessly ingests DeepMind AlphaEarth 64-dimensional foundation model embeddings with **adaptive band-chunking** and **Float32 casting** to reliably bypass the Google Earth Engine 48 MB direct download quota.
-- **Paired 160×160 px Chipping**: Tiles Sentinel-2 imagery and GSE rasters into paired crops with configurable valid-pixel coverage thresholds.
-- **3-Component PCA Visual Previews**: Automatically projects 64-channel embeddings into human-interpretable 3-channel RGB preview images via Principal Component Analysis and 2–98% percentile stretching, alongside raw 64-band `.npy` arrays.
-- **Georeferenced Manifest**: Indexes every chip with its geographic bounding box (`[min_lon, min_lat, max_lon, max_lat]`), pixel offset, and task group in a standardized `manifest.json`.
-- **Roboflow Annotation Batches**: Uploads grouped task chip folders directly into Roboflow as distinct annotation batches for immediate annotator assignment.
+GeoChip features a modern terminal user interface (inspired by interactive tools like Antigravity and Claude Code) allowing users to effortlessly discover, filter, composite, download, tile, and upload satellite data directly into annotation pipelines.
+
+### 🌟 Key Highlights
+
+- **Interactive Terminal Experience**: Smooth, arrow-key navigation (`↑/↓` + `Enter`), dynamic live status banners, and intuitive prompts for selecting datasets, dates, thresholds, and workflows.
+- **Multi-Sensor Earth Observation Catalog**:
+  - **Copernicus Sentinel-2 L2A (10m)**: High-resolution multispectral imagery with QA60 / SCL cloud masking.
+  - **USGS Landsat 9 OLI-2 & Landsat 8 OLI C2 L2 (30m)**: Accurate surface reflectance with QA_PIXEL masking.
+  - **Copernicus Sentinel-1 SAR GRD (10m)**: C-Band Synthetic Aperture Radar (all-weather, day & night, penetrates clouds).
+  - **MODIS Terra Daily Surface Reflectance (250m/500m)**: High temporal frequency for large-area monitoring.
+  - **NASA SRTM Digital Elevation Model (30m)**: Global topography and terrain elevation.
+- **Flexible Date & Cloud Filtering**: Set custom start/end dates and cloud cover percentage thresholds (0–100%).
+- **Scene Discovery & Dual Ingestion Modes**: Inspect all matching scene IDs, dates, and cloud percentages with the option to:
+  - **Download a Single Scene**: Choose any individual scene (e.g., the clearest single acquisition).
+  - **Generate a Composite**: Merge all matching scenes using customizable reducers (**Median**, **Copernicus Q2 25th Percentile**, **Mean**, or **Min-Cloud Mosaic**).
+- **Single-Raster Chipping Engine**: Slices downloaded GeoTIFFs into uniform tiles (**160×160**, **320×320**, **640×640**, or **1280×1280 px**) with valid-coverage filtering and automatic RGB/Grayscale normalization.
+- **Batch Task Organization & Georeferenced Manifest**: Groups tiles into task batches (e.g., 5, 10, or 20 chips per task) indexed by a standardized `manifest.json` with WGS84 geographic coordinates.
+- **Interactive Roboflow Ingestion**: Direct upload to target Roboflow projects as distinct Annotation Batches, or save locally and skip uploading.
+- **Streamlined GEE Authentication**: Uses official Google Earth Engine browser-based OAuth (**Option A**), removing service account complexities.
 
 ---
 
-## 🏗️ Architecture & Pipeline Flow
+## 🏗️ Architecture & Workflows
 
 ```mermaid
 flowchart TD
-    A[AOI Shapefile\n'data/aoi/*.shp'] --> B[Google Earth Engine Ingestion]
-    
-    subgraph GEE Ingestion
-        B -->|Copernicus Q2 25th Percentile| C1[Sentinel-2 True Color\n10m UInt8 GeoTIFF]
-        B -->|Adaptive Band-Chunking & LZW| C2[Google Satellite Embeddings\nAlphaEarth 64-D Float32 GeoTIFF]
+    subgraph W1[Workflow 1: Download Data Satelit]
+        A[AOI Shapefile\ndata/aoi/*.shp] --> B[Pilih Dataset\nS2 / L8 / L9 / S1 SAR / MODIS / DEM]
+        B --> C[Rentang Tanggal & Filter Awan %]
+        C --> D[Query GEE & Tampilkan List Scene]
+        D -->|Pilih Single Scene| E1[Download Single Scene]
+        D -->|Pilih Composite| E2[Composite Mosaicing\nMedian / Q25 / Mean / Min-Cloud]
+        E1 --> F[Raw GeoTIFF Raster\ndata/raw/*.tif]
+        E2 --> F
     end
-    
-    C1 --> D[GeoChip Tiling Engine]
-    C2 --> D
-    
-    subgraph Chipping & Featurization
-        D --> E1[Paired 160x160 Crops\n'chip_xxx.png']
-        D --> E2[GSE PCA 3-Channel Previews\n'chip_xxx.png']
-        D --> E3[Raw 64-Band Arrays\n'chip_xxx.npy']
-        D --> E4[Geospatial Metadata\n'manifest.json']
+
+    subgraph W2[Workflow 2: Chipping & Upload]
+        F --> G[Pilih Ukuran Potongan\n160 / 320 / 640 / 1280 px]
+        G --> H[Tentukan Batch Task\nMisal: 5 chips/task]
+        H --> I[Chipping Engine & manifest.json\ndata/chips/<raster>/task*/]
+        I --> J{Pilihan Upload Roboflow?}
+        J -->|Ya| K[Roboflow Annotation Batches\nReady for Labeling]
+        J -->|Lewati| L[Simpan Lokal Selesai]
     end
-    
-    E1 --> F[Roboflow API Uploader]
-    F --> G[Roboflow Annotation Batches\nReady for Labeling]
 ```
 
 ---
@@ -62,21 +73,23 @@ GeoChip/
 ├── data/
 │   ├── aoi/                    # ESRI Shapefiles defining Areas of Interest (AOI)
 │   ├── raw/                    # Downloaded GeoTIFF rasters (gitignored)
-│   └── chips/                  # Tiled paired image chips & manifest (gitignored)
+│   └── chips/                  # Tiled image chips & manifest.json (gitignored)
 ├── geochip/                    # Core Python package
-│   ├── __init__.py             # Package exports and version
-│   ├── auth.py                 # Earth Engine authentication & diagnostic verification
-│   ├── downloader.py           # Sentinel-2 & GSE download routines with adaptive chunking
-│   ├── tiler.py                # 160x160 paired chipping, PCA featurization & manifest generator
+│   ├── __init__.py             # Package exports and version (v2.0.0)
+│   ├── auth.py                 # Google Earth Engine browser OAuth (Option A)
+│   ├── datasets.py             # Earth Observation dataset registry & cloud masks
+│   ├── downloader.py           # Interactive scene query, compositing & download engine
+│   ├── tiler.py                # Single-raster tiling (160/320/640/1280 px) & manifest
 │   ├── uploader.py             # Roboflow batch annotation uploader
-│   └── cli.py                  # Unified Command Line Interface (CLI)
-├── main.py                     # CLI entry point
-├── auth_setup.py               # Standalone runner for Earth Engine authentication
-├── download_data.py            # Standalone runner for downloading satellite rasters
-├── create_chips.py             # Standalone runner for image chipping & PCA tiling
-├── upload_roboflow.py          # Standalone runner for Roboflow batch uploads
+│   ├── ui.py                   # Terminal UI engine (arrow keys, formatting, colors)
+│   └── cli.py                  # Unified interactive & argument-driven CLI
+├── main.py                     # Primary interactive CLI entry point
+├── auth_setup.py               # Standalone runner for GEE OAuth setup
+├── download_data.py            # Standalone runner for Workflow 1 (Download)
+├── create_chips.py             # Standalone runner for Workflow 2 (Chipping)
+├── upload_roboflow.py          # Standalone runner for Roboflow batch upload
 ├── .env.example                # Template for environment variables and API keys
-├── .gitignore                  # Comprehensive gitignore for rasters and secrets
+├── .gitignore                  # Git ignore rules for rasters, chips, and secrets
 ├── LICENSE                     # MIT License
 ├── pyproject.toml              # Build system and package configuration
 └── requirements.txt            # Python dependencies
@@ -88,15 +101,16 @@ GeoChip/
 
 ### 1. Installation
 
-Clone this repository and set up a Python virtual environment:
+Clone this repository and create a Python virtual environment:
 
 ```bash
 git clone https://github.com/<your-username>/GeoChip.git
 cd GeoChip
 
-# Create and activate virtual environment
+# Create virtual environment
 python -m venv .venv
 
+# Activate virtual environment
 # Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
 # Linux / macOS:
@@ -106,159 +120,161 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-*(Optional) Install in editable mode to use the `geochip` terminal command:*
+*(Optional) Install in editable mode for the `geochip` terminal command:*
 ```bash
 pip install -e .
 ```
 
 ---
 
-## 🔑 Authentication Setup
+## 🔑 Authentication & Secrets Management
 
-GeoChip connects to **Google Earth Engine (GEE)** and **Roboflow**.
-
-### 1. Google Earth Engine (Choose One Method)
-
-#### Option A: Web Browser OAuth (Recommended)
-1. Register for [Google Earth Engine](https://code.earthengine.google.com/register) (Academic, Research, or Non-commercial usage).
-2. Note your **Google Cloud Project ID** (e.g. `my-gee-project-123`).
-3. Run the login command:
+### 1. Google Earth Engine (Option A: Browser OAuth)
+GeoChip uses **Option A** (browser OAuth):
+1. Pastikan Anda memiliki akun [Google Earth Engine](https://code.earthengine.google.com/register).
+2. Siapkan **Google Cloud Project ID** Anda (contoh: `my-gee-project-123`).
+3. Jalankan perintah autentikasi:
    ```bash
-   python auth_setup.py --login --project <YOUR_PROJECT_ID>
+   python auth_setup.py --login
    ```
-4. Authenticate in your browser. Tokens will be cached securely on your machine.
+4. Browser akan terbuka otomatis. Login dengan akun Google Anda dan berikan izin. Token akan disimpan aman di kredensial lokal mesin Anda, dan Project ID akan disimpan ke file `.env`.
 
-#### Option B: Google Cloud Service Account
-1. Open [Google Cloud Console](https://console.cloud.google.com/) and navigate to **IAM & Admin > Service Accounts**.
-2. Create a service account and grant the role **Earth Engine Resource Viewer** (or **Earth Engine User**).
-3. Create and download a **JSON Key**.
-4. Rename the key to `credentials.json` and place it in the root directory of `GeoChip`.
+### 2. Secrets Management (Lokal vs GitHub Secrets)
 
-#### Diagnostic Verification
-Verify that both Sentinel-2 and Google Satellite Embeddings catalogs can be queried:
-```bash
-python auth_setup.py
-```
+> [!IMPORTANT]
+> **Penyimpanan Lokal vs Remote:**
+> - **Lokal:** Semua API key dan ID rahasia (seperti `ROBOFLOW_API_KEY`, `ROBOFLOW_WORKSPACE`, `ROBOFLOW_PROJECT`, `EE_PROJECT_ID`) disimpan di file `.env` di root repository. File `.env` **sudah otomatis masuk `.gitignore`** sehingga tidak akan pernah ter-commit atau bocor ke publik.
+> - **GitHub Secrets:** Git `push` secara desain **tidak mengirimkan secret** ke GitHub demi keamanan. Untuk menyinkronkan secret ke GitHub Actions / repository remote:
+>   1. **Via Web:** Buka repositori GitHub > **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
+>   2. **Via GitHub CLI (`gh`):**
+>      ```bash
+>      gh secret set ROBOFLOW_API_KEY --body "your_key_here"
+>      gh secret set EE_PROJECT_ID --body "your_project_id"
+>      ```
 
-### 2. Roboflow Setup
-Create a `.env` file from the example template:
-```bash
-cp .env.example .env
-```
-Fill in your Roboflow credentials:
+Contoh konfigurasi `.env`:
 ```env
-EE_PROJECT_ID=your_gcp_project_id
-ROBOFLOW_API_KEY=your_private_api_key
-ROBOFLOW_WORKSPACE=your_workspace_slug
-ROBOFLOW_PROJECT=your_project_id
+EE_PROJECT_ID=my-gcp-project-id
+ROBOFLOW_API_KEY=your_private_api_key_here
+ROBOFLOW_WORKSPACE=my-workspace-slug
+ROBOFLOW_PROJECT=satellite-object-detection
 ```
 
 ---
 
-## 🚀 Step-by-Step Usage
+## 🚀 Interactive CLI Usage
 
-### Step 1: Download Sentinel-2 & Embeddings
-Download cloud-free Sentinel-2 True Color mosaics and 64-band GSE rasters for a target AOI:
-
-```bash
-python download_data.py --aoi data/aoi/AOI-1.shp --mode copernicus-q2 --year 2025
-```
-
-**Parameters:**
-- `--aoi`: Path to ESRI Shapefile (default: `data/aoi/AOI-1.shp`).
-- `--mode`: Composite mode (`copernicus-q2` [default], `annual`, or `window`).
-- `--year`: Target year (default: `2025`).
-- `--output-dir`: Storage directory (default: `data/raw`).
-- `--force`: Force re-download even if cached rasters exist.
-
----
-
-### Step 2: Generate Paired Chips (160×160 px)
-Slice rasters into synchronized tiles, compute PCA visualizations for embeddings, and write `manifest.json`:
+Jalankan perintah utama untuk membuka antarmuka interaktif:
 
 ```bash
-python create_chips.py --aoi AOI-1 --chip-size 160 --chips-per-task 5
+python main.py
 ```
 
-**Output Structure (`data/chips/AOI-1/`):**
+Anda akan disuguhkan menu interaktif:
+
 ```text
-data/chips/AOI-1/
-├── manifest.json              # Complete geospatial coordinate indexing
-├── Sentinel/
-│   ├── task1-AOI-1/           # Contains chip_001.png to chip_005.png
-│   ├── task2-AOI-1/           # Contains chip_006.png to chip_010.png
-│   └── ...
-└── GSE/
-    ├── task1-AOI-1/           # Contains chip_001.png (PCA RGB) & chip_001.npy (Raw 64-D)
-    ├── task2-AOI-1/
-    └── ...
+  ██████╗ ███████╗ ██████╗  ██████╗██╗  ██╗██╗██████╗ 
+ ██╔════╝ ██╔════╝██╔═══██╗██╔════╝██║  ██║██║██╔══██╗
+ ██║  ███╗█████╗  ██║   ██║██║     ███████║██║██████╔╝
+ ██║   ██║██╔══╝  ██║   ██║██║     ██╔══██║██║██╔═══╝ 
+ ╚██████╔╝███████╗╚██████╔╝╚██████╗██║  ██║██║██║     
+  ╚═════╝ ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚═╝╚═╝     
+  Geospatial Earth Observation Pipeline & Roboflow Ingestion
+
+ ? Pilih Workflow yang Ingin Dijalankan:
+   ❯ [1] 📥 Workflow 1: Download Data Satelit (Earth Engine)
+     [2] ✂️  Workflow 2: Chipping & Upload ke Roboflow
+     [3] 🔑 Setup Autentikasi GEE (OAuth Browser Option A)
+     [4] ❌ Keluar
 ```
 
 ---
 
-### Step 3: Upload Batches to Roboflow
-Upload task chip folders as separate annotation batches to Roboflow:
+### 📥 Workflow 1: Download Data Satelit
 
-```bash
-python upload_roboflow.py --aoi AOI-1 --target-type Sentinel --task all
-```
-
-Once uploaded, navigate to your **Roboflow Dashboard > Annotate** tab to assign batches to individual annotators.
-
----
-
-## 🛠️ Unified CLI Pipeline
-
-You can also run all steps via the unified `main.py` entry point:
-
-```bash
-# Check auth
-python main.py auth
-
-# Download rasters
-python main.py download --aoi data/aoi/AOI-1.shp
-
-# Generate chips
-python main.py chip --aoi AOI-1
-
-# Upload chips to Roboflow
-python main.py upload --aoi AOI-1
-
-# Or run the complete automated pipeline in one command:
-python main.py pipeline --aoi-path data/aoi/AOI-1.shp --upload
-```
+Langkah-langkah interaktif:
+1. **Pilih AOI**: Sistem otomatis mendeteksi shapefile di `data/aoi/` (misal: `AOI-1.shp`).
+2. **Pilih Dataset Satelit**:
+   - `Copernicus Sentinel-2 L2A (10m)`
+   - `USGS Landsat 9 OLI-2 / TIRS-2 C2 L2 (30m)`
+   - `USGS Landsat 8 OLI / TIRS C2 L2 (30m)`
+   - `Copernicus Sentinel-1 SAR GRD (10m Radar - Tembus Awan)`
+   - `MODIS Terra Daily Surface Reflectance (250m/500m)`
+   - `NASA SRTM Digital Elevation Model (30m Topografi)`
+3. **Pilih Rentang Tanggal**: Masukkan tanggal mulai & akhir (format `YYYY-MM-DD`).
+4. **Filter Cloud Percentage**: Masukkan batas maksimal tutupan awan (misal `20%`). *Catatan: Otomatis dilewati untuk radar dan DEM.*
+5. **Daftar Scene & Pilihan Unduhan**:
+   - Menampilkan tabel scene (ID scene, tanggal capture, persentase awan).
+   - Opsi: **Unduh Single Scene** pilihan Anda, ATAU **Composite Seluruh Scene** dengan reducer:
+     - *Median Composite* (standar de-clouding)
+     - *Copernicus Q2 25th Percentile* (kualitas visual kontras tinggi)
+     - *Mean Average Composite*
+     - *Min-Cloud Mosaic*
+6. **Ekspor & Download**: Hasil raster disimpan langsung ke `data/raw/<dataset>_<aoi>_<metadata>.tif` dalam format UInt8 GeoTIFF siap pakai.
 
 ---
 
-## 📜 Metadata Specification (`manifest.json`)
+### ✂️ Workflow 2: Chipping & Upload ke Roboflow
 
-Each entry in `manifest.json` provides complete geospatial context for downstream model training and spatial analysis:
+Langkah-langkah interaktif:
+1. **Pilih Raw Raster**: Pilih citra GeoTIFF yang ada di folder `data/raw/`.
+2. **Pilih Ukuran Potongan Clip**:
+   - `160 x 160 px`
+   - `320 x 320 px`
+   - `640 x 640 px` (standar Roboflow / YOLO)
+   - `1280 x 1280 px`
+3. **Tentukan Jumlah Batch Task**: Tentukan berapa banyak chip dalam tiap folder task (misal: `5`, `10`, atau `20` chip per task).
+4. **Proses Chipping**:
+   - Sistem memotong citra secara merata, mengabaikan area kosong/nodata (`>70% valid pixel threshold`), dan menyimpannya sebagai PNG di `data/chips/<nama_raster>/task*/`.
+   - Menghasilkan file georeferensi `manifest.json`.
+5. **Pilihan Upload Roboflow**:
+   - **Upload Sekarang**: Pilih/konfirmasi project Roboflow tujuan, dan kirim task batch langsung ke Roboflow.
+   - **Simpan Lokal Saja**: Selesai tanpa upload, hasil potongan tetap tersimpan rapi di folder lokal.
+
+---
+
+## 📜 Spesifikasi Manifest (`manifest.json`)
+
+Setiap proses pemotongan menghasilkan `manifest.json` yang mencatat koordinat geografis WGS84 untuk setiap chip:
 
 ```json
 {
-  "chip_id": 1,
-  "chip_name": "chip_001.png",
-  "task_name": "task1-AOI-1",
-  "aoi": "AOI-1",
-  "row_start": 160,
-  "col_start": 160,
-  "chip_size": 160,
-  "bbox_geo": [
-    106.273932,
-    -6.180049,
-    106.288305,
-    -6.165676
-  ],
-  "sentinel_path": "AOI-1/Sentinel/task1-AOI-1/chip_001.png",
-  "gse_path": "AOI-1/GSE/task1-AOI-1/chip_001.png"
+  "source_raster": "sentinel-2_AOI-1_2025-01-01_2025-03-31_median.tif",
+  "crs": "EPSG:4326",
+  "chip_size": 640,
+  "chips_per_task": 5,
+  "total_chips": 20,
+  "total_tasks": 4,
+  "chips": [
+    {
+      "chip_id": "chip_0001",
+      "task": "task1-sentinel-2_AOI-1",
+      "relative_path": "task1-sentinel-2_AOI-1/chip_0001.png",
+      "pixel_bbox": [0, 0, 640, 640],
+      "geo_bbox": [106.273932, -6.180049, 106.331505, -6.122476],
+      "dimensions": [640, 640],
+      "valid_coverage": 0.985
+    }
+  ]
 }
 ```
 
 ---
 
-## 🤝 Contributing
+## 💻 Headless / Scripting Usage
 
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/<your-username>/GeoChip/issues).
+Bagi pengguna yang ingin menjalankan perintah via skrip atau CI/CD otomatis tanpa prompt interaktif:
+
+```bash
+# Workflow 1: Download via standalone script
+python download_data.py
+
+# Workflow 2: Chipping via standalone script
+python create_chips.py --raster data/raw/sentinel-2_AOI-1_median.tif --chip-size 640 --chips-per-task 5
+
+# Upload via standalone script
+python upload_roboflow.py --chips-dir data/chips/sentinel-2_AOI-1/
+```
 
 ---
 

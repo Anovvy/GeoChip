@@ -1,141 +1,150 @@
-﻿import os
+"""
+GeoChip Tiling & Chipping Engine.
+Slices single raw satellite GeoTIFF rasters into configurable tiles (160, 320, 640, 1280 px),
+organizes into task batches, generates georeferenced manifest.json, and connects to Roboflow.
+"""
+
+import os
 import sys
 import json
-import argparse
 from pathlib import Path
 import numpy as np
-import rasterio
-from PIL import Image
-from sklearn.decomposition import PCA
+
+from .ui import (
+    select,
+    prompt_number,
+    prompt_confirm,
+    print_step,
+    print_success,
+    print_error,
+    print_warning,
+    print_info,
+)
 
 
-def generate_gse_rgb(gse_data, valid_mask):
+CHIP_SIZES = [
+    {"name": "160 x 160 px", "size": 160, "desc": "Ukuran standar deteksi objek kecil (Sentinel-2 10m / drone)"},
+    {"name": "320 x 320 px", "size": 320, "desc": "Ukuran ideal resolusi menengah (YOLOv8 / Faster-RCNN)"},
+    {"name": "640 x 640 px", "size": 640, "desc": "Ukuran standar Roboflow & YOLO default (Area cakupan luas)"},
+    {"name": "1280 x 1280 px", "size": 1280, "desc": "Ukuran resolusi tinggi / konteks spasial sangat luas"},
+]
+
+
+def list_available_raw_rasters(raw_dir="data/raw"):
+    """List all GeoTIFF files available in data/raw."""
+    dir_path = Path(raw_dir)
+    if not dir_path.exists():
+        dir_path.mkdir(parents=True, exist_ok=True)
+        return []
+    return sorted(list(dir_path.glob("*.tif")) + list(dir_path.glob("*.tiff")))
+
+
+def format_raster_to_rgb(data):
     """
-    Convert 64-dimensional Google Satellite Embeddings into a 3-channel RGB image
-    using Principal Component Analysis (PCA) and 2-98% percentile contrast stretching.
+    Convert raw raster array (C, H, W) to (H, W, 3) uint8 RGB image.
+    Handles 3-band, multi-band, or single-band (SAR / DEM).
     """
-    C, H, W = gse_data.shape
-    finite_mask = valid_mask & np.isfinite(gse_data).all(axis=0)
+    C, H, W = data.shape
+    if C >= 3:
+        # If already uint8
+        if data.dtype == np.uint8:
+            return np.transpose(data[:3], (1, 2, 0))
+        # If float or uint16, stretch each channel to 0-255
+        rgb = np.zeros((H, W, 3), dtype=np.uint8)
+        for i in range(3):
+            band = data[i].astype(np.float32)
+            finite_mask = np.isfinite(band)
+            if not np.any(finite_mask):
+                continue
+            p2, p98 = np.percentile(band[finite_mask], (2, 98))
+            if p98 > p2:
+                norm = np.clip((band - p2) / (p98 - p2) * 255.0, 0, 255).astype(np.uint8)
+            else:
+                norm = np.clip(band, 0, 255).astype(np.uint8)
+            rgb[:, :, i] = norm
+        return rgb
 
-    # Extract valid pixel vectors
-    X_valid = gse_data[:, finite_mask].T  # Shape: (N_valid, 64)
+    elif C == 1:
+        # Single band: duplicate to 3 channels (grayscale)
+        band = data[0].astype(np.float32)
+        if data.dtype == np.uint8:
+            norm = data[0]
+        else:
+            finite_mask = np.isfinite(band)
+            if np.any(finite_mask):
+                p2, p98 = np.percentile(band[finite_mask], (2, 98))
+                if p98 > p2:
+                    norm = np.clip((band - p2) / (p98 - p2) * 255.0, 0, 255).astype(np.uint8)
+                else:
+                    norm = np.clip(band, 0, 255).astype(np.uint8)
+            else:
+                norm = np.zeros((H, W), dtype=np.uint8)
+        return np.stack([norm, norm, norm], axis=-1)
 
-    # Fit 3-component PCA
-    pca = PCA(n_components=3)
-    pca_features = pca.fit_transform(X_valid)
+    elif C == 2:
+        # 2 bands (e.g. SAR VV & VH)
+        b1 = data[0].astype(np.float32)
+        b2 = data[1].astype(np.float32)
+        b3 = (b1 + b2) / 2.0
+        stacked = np.stack([b1, b2, b3], axis=0)
+        return format_raster_to_rgb(stacked)
 
-    # Normalize each component to 0 - 255 (uint8) using 2nd - 98th percentile stretch
-    gse_rgb = np.zeros((H, W, 3), dtype=np.uint8)
-    for b in range(3):
-        comp = pca_features[:, b]
-        p2, p98 = np.percentile(comp, (2, 98))
-        norm = np.clip((comp - p2) / (p98 - p2 + 1e-6) * 255.0, 0, 255).astype(np.uint8)
-        gse_rgb[finite_mask, b] = norm
-
-    return gse_rgb, pca
-
-
-def locate_input_rasters(aoi_name, s2_path=None, gse_path=None):
-    """Locate Sentinel-2 and GSE GeoTIFFs across standard directories."""
-    # Look for Sentinel-2
-    if s2_path is None or not os.path.exists(s2_path):
-        candidate_s2 = [
-            f"data/raw/Sentinel2M-2025-{aoi_name}_TrueColor.tif",
-            f"RAW Data/Sentinel2M-2025-{aoi_name}_TrueColor.tif",
-            f"data/raw/Sentinel2M-2025-{aoi_name}.tif",
-            f"RAW Data/Sentinel2M-2025-{aoi_name}.tif",
-        ]
-        for c in candidate_s2:
-            if os.path.exists(c):
-                s2_path = c
-                break
-
-    # Look for GSE
-    if gse_path is None or not os.path.exists(gse_path):
-        candidate_gse = [
-            f"data/raw/GSE-2025-{aoi_name}.tif",
-            f"RAW Data/GSE-2025-{aoi_name}.tif",
-        ]
-        for c in candidate_gse:
-            if os.path.exists(c):
-                gse_path = c
-                break
-
-    if not s2_path or not os.path.exists(s2_path):
-        raise FileNotFoundError(f"Sentinel-2 GeoTIFF for '{aoi_name}' not found. Please run the download step first.")
-
-    if not gse_path or not os.path.exists(gse_path):
-        raise FileNotFoundError(f"Google Satellite Embeddings GeoTIFF for '{aoi_name}' not found. Please run the download step first.")
-
-    return s2_path, gse_path
+    raise ValueError(f"Dimensi raster tidak didukung: {data.shape}")
 
 
-def create_paired_chips(
-    aoi_name="AOI-1",
-    s2_path=None,
-    gse_path=None,
+def create_single_raster_chips(
+    raster_path,
     output_base="data/chips",
-    chip_size=160,
+    chip_size=640,
     chips_per_task=5,
-    save_raw_gse_npy=True,
     min_valid_ratio=0.70
 ):
     """
-    Generate paired chips (160x160 px) from Sentinel-2 and GSE rasters,
-    grouped into task batches (e.g. 5 chips per task) with georeferenced manifest.json.
+    Slice single satellite raster GeoTIFF into chip tiles,
+    grouped into task batches with georeferenced manifest.json.
     """
-    s2_path, gse_path = locate_input_rasters(aoi_name, s2_path, gse_path)
+    raster_path = Path(raster_path)
+    if not raster_path.exists():
+        raise FileNotFoundError(f"File raster '{raster_path}' tidak ditemukan!")
 
-    print("=" * 60)
-    print(f"  PAIRED CHIPPING ENGINE ({aoi_name})")
-    print(f"  Chip Size: {chip_size}x{chip_size} px | Chips per Task: {chips_per_task}")
-    print(f"  Sentinel: {s2_path}")
-    print(f"  GSE:      {gse_path}")
-    print("=" * 60)
+    try:
+        import rasterio
+        from PIL import Image
+    except ImportError as e:
+        print_error(f"Dependensi yang diperlukan belum terpasang: {e}")
+        print_info("Silakan jalankan: pip install -r requirements.txt")
+        return None, 0
 
-    print(f"[LOAD] Reading Sentinel-2 raster: {s2_path}")
-    with rasterio.open(s2_path) as src_s2:
-        s2_transform = src_s2.transform
-        s2_crs = src_s2.crs
-        s2_data = src_s2.read()  # Shape: (C, H, W)
+    raster_stem = raster_path.stem
+    out_dir = Path(output_base) / raster_stem
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[LOAD] Reading GSE raster:        {gse_path}")
-    with rasterio.open(gse_path) as src_gse:
-        gse_data = src_gse.read()  # Shape: (64, H, W)
+    print_info(f"Membuka file raster: {raster_path.name}")
+    with rasterio.open(str(raster_path)) as src:
+        transform = src.transform
+        crs = src.crs
+        width = src.width
+        height = src.height
+        count = src.count
 
-    # Format Sentinel-2 RGB array (uint8)
-    if s2_data.shape[0] == 3 and s2_data.dtype == np.uint8:
-        s2_rgb = np.transpose(s2_data, (1, 2, 0))  # Shape: (H, W, 3)
-    elif s2_data.shape[0] >= 3:
-        r = s2_data[2].astype(np.float32)
-        g = s2_data[1].astype(np.float32)
-        b = s2_data[0].astype(np.float32)
+        print_info(f"Dimensi raster: {width} x {height} px ({count} band) | CRS: {crs}")
+        raw_data = src.read()
 
-        def stretch(band):
-            return np.clip((band / 2500.0) * 255.0, 0, 255).astype(np.uint8)
+    # Convert to RGB image for chip generation
+    print_info("Mengonversi data raster ke format visual RGB...")
+    rgb_data = format_raster_to_rgb(raw_data)
+    H, W, _ = rgb_data.shape
 
-        s2_rgb = np.stack([stretch(r), stretch(g), stretch(b)], axis=-1)
-    else:
-        raise ValueError("Unsupported Sentinel-2 raster channel format!")
-
-    H, W, _ = s2_rgb.shape
-    s2_valid = np.any(s2_rgb > 0, axis=-1)
-    gse_valid = np.isfinite(gse_data).all(axis=0)
-    valid_both = s2_valid & gse_valid
-
-    print("[GSE] Computing 3-component PCA for visual GSE preview...")
-    gse_rgb, pca = generate_gse_rgb(gse_data, valid_both)
-
+    # Calculate grid
     n_rows = H // chip_size
     n_cols = W // chip_size
-    total_grid_cells = n_rows * n_cols
-    print(f"[GRID] Image grid: {n_rows} rows x {n_cols} columns ({total_grid_cells} potential chips).")
+    total_grid = n_rows * n_cols
 
-    out_aoi_dir = Path(output_base) / aoi_name
-    out_aoi_dir.mkdir(parents=True, exist_ok=True)
+    if total_grid == 0:
+        print_error(f"Ukuran raster ({W}x{H} px) lebih kecil daripada ukuran chip ({chip_size}x{chip_size} px)!")
+        return None, 0
 
-    sentinel_base = out_aoi_dir / "Sentinel"
-    gse_base = out_aoi_dir / "GSE"
+    print_info(f"Grid pemotongan: {n_rows} baris x {n_cols} kolom ({total_grid} potensi chip)")
 
     manifest = []
     chip_counter = 0
@@ -147,95 +156,157 @@ def create_paired_chips(
             c_start = c * chip_size
             c_end = c_start + chip_size
 
-            # Check valid pixel coverage ratio
-            cell_valid = valid_both[r_start:r_end, c_start:c_end]
-            if np.mean(cell_valid) < min_valid_ratio:
+            chip_crop = rgb_data[r_start:r_end, c_start:c_end, :]
+
+            # Valid pixel coverage check (skip mostly black/empty borders)
+            valid_pixels = np.any(chip_crop > 0, axis=-1)
+            valid_ratio = np.mean(valid_pixels)
+            if valid_ratio < min_valid_ratio:
                 continue
 
             chip_counter += 1
-            task_num = (chip_counter - 1) // chips_per_task + 1
-            task_name = f"task{task_num}-{aoi_name}"
-            chip_name = f"chip_{chip_counter:03d}.png"
+            task_num = ((chip_counter - 1) // chips_per_task) + 1
+            task_name = f"task{task_num}-{raster_stem}"
+            task_dir = out_dir / task_name
+            task_dir.mkdir(parents=True, exist_ok=True)
 
-            # Task output directories
-            task_s2_dir = sentinel_base / task_name
-            task_gse_dir = gse_base / task_name
-            task_s2_dir.mkdir(parents=True, exist_ok=True)
-            task_gse_dir.mkdir(parents=True, exist_ok=True)
+            chip_filename = f"chip_{chip_counter:04d}.png"
+            chip_filepath = task_dir / chip_filename
 
-            # Crop Sentinel-2 chip and save PNG
-            s2_chip = s2_rgb[r_start:r_end, c_start:c_end]
-            Image.fromarray(s2_chip).save(task_s2_dir / chip_name)
+            # Save PNG chip
+            img = Image.fromarray(chip_crop)
+            img.save(str(chip_filepath), optimize=True)
 
-            # Crop GSE PCA RGB chip and save PNG
-            gse_chip_rgb = gse_rgb[r_start:r_end, c_start:c_end]
-            Image.fromarray(gse_chip_rgb).save(task_gse_dir / chip_name)
+            # Calculate Geographic Coordinates (WGS84 lon, lat)
+            top_left_x, top_left_y = transform * (c_start, r_start)
+            bot_right_x, bot_right_y = transform * (c_end, r_end)
 
-            # Save raw 64-band embedding as .npy if requested
-            if save_raw_gse_npy:
-                gse_chip_raw = gse_data[:, r_start:r_end, c_start:c_end]
-                np.save(task_gse_dir / f"chip_{chip_counter:03d}.npy", gse_chip_raw)
+            min_lon = min(top_left_x, bot_right_x)
+            max_lon = max(top_left_x, bot_right_x)
+            min_lat = min(top_left_y, bot_right_y)
+            max_lat = max(top_left_y, bot_right_y)
 
-            # Compute geographic bounding box coordinates
-            top_left_x, top_left_y = s2_transform * (c_start, r_start)
-            bottom_right_x, bottom_right_y = s2_transform * (c_end, r_end)
-
-            manifest_item = {
-                "chip_id": chip_counter,
-                "chip_name": chip_name,
-                "task_name": task_name,
-                "aoi": aoi_name,
-                "row_start": int(r_start),
-                "col_start": int(c_start),
-                "chip_size": int(chip_size),
-                "bbox_geo": [
-                    float(min(top_left_x, bottom_right_x)),
-                    float(min(top_left_y, bottom_right_y)),
-                    float(max(top_left_x, bottom_right_x)),
-                    float(max(top_left_y, bottom_right_y)),
-                ],
-                "sentinel_path": str((Path(aoi_name) / "Sentinel" / task_name / chip_name)),
-                "gse_path": str((Path(aoi_name) / "GSE" / task_name / chip_name)),
-            }
-            manifest.append(manifest_item)
+            manifest.append({
+                "chip_id": f"chip_{chip_counter:04d}",
+                "task": task_name,
+                "relative_path": str(Path(task_name) / chip_filename).replace("\\", "/"),
+                "pixel_bbox": [c_start, r_start, c_end, r_end],
+                "geo_bbox": [min_lon, min_lat, max_lon, max_lat],
+                "dimensions": [chip_size, chip_size],
+                "valid_coverage": round(float(valid_ratio), 4),
+            })
 
     # Save manifest.json
-    manifest_path = out_aoi_dir / "manifest.json"
-    with open(manifest_path, "w") as f:
-        json.dump(manifest, f, indent=2)
+    manifest_path = out_dir / "manifest.json"
+    manifest_data = {
+        "source_raster": str(raster_path.name),
+        "crs": str(crs),
+        "chip_size": chip_size,
+        "chips_per_task": chips_per_task,
+        "total_chips": chip_counter,
+        "total_tasks": ((chip_counter - 1) // chips_per_task) + 1 if chip_counter > 0 else 0,
+        "chips": manifest,
+    }
+    with open(str(manifest_path), "w") as f:
+        json.dump(manifest_data, f, indent=2)
 
-    total_tasks = (chip_counter + chips_per_task - 1) // chips_per_task
-    print("\n" + "=" * 60)
-    print("  CHIPPING STAGE COMPLETED!")
-    print(f"  Valid Chips Generated: {chip_counter}")
-    print(f"  Total Task Batches:   {total_tasks}")
-    print(f"  Output Directory:     {out_aoi_dir}")
-    print(f"  Manifest Metadata:    {manifest_path}")
-    print("=" * 60)
+    print_success(f"Pemotongan selesai! Berhasil membuat {chip_counter} chip.")
+    print_info(f"Folder output: {out_dir}")
+    print_info(f"File manifest tersimpan di: {manifest_path}")
 
-    return manifest
+    return str(out_dir), chip_counter
+
+
+def interactive_chipping_workflow():
+    """
+    Interactive Workflow 2: Chipping & Upload ke Roboflow.
+    """
+    print_step("Workflow 2: Chipping & Upload ke Roboflow")
+
+    # 1. Pilih Raster dari data/raw
+    raw_files = list_available_raw_rasters()
+    if not raw_files:
+        print_error("Tidak ada file raster GeoTIFF (.tif) di 'data/raw/'!")
+        print_info("Silakan jalankan Workflow 1 (Download Data) terlebih dahulu, atau masukkan file .tif ke 'data/raw/'.")
+        return
+
+    raster_choices = [
+        {"name": f.name, "desc": f"Ukuran: {f.stat().st_size / (1024*1024):.2f} MB"}
+        for f in raw_files
+    ]
+    raster_idx = select("Pilih File Raw Raster yang Ingin Dipotong (Chip):", raster_choices)
+    selected_raster = raw_files[raster_idx]
+    print_success(f"Raster terpilih: {selected_raster.name}")
+
+    # 2. Pilih Ukuran Clip
+    size_choices = [
+        {"name": s["name"], "desc": s["desc"]}
+        for s in CHIP_SIZES
+    ]
+    size_idx = select("Pilih Ukuran Potongan Clip (Pixel Size):", size_choices, default_index=2)
+    selected_chip_size = CHIP_SIZES[size_idx]["size"]
+    print_success(f"Ukuran clip: {selected_chip_size} x {selected_chip_size} px")
+
+    # 3. Tentukan Batch Task (Chips per Task)
+    chips_per_task = prompt_number(
+        "Tentukan Jumlah Chip dalam Tiap Batch Task",
+        default=5,
+        min_val=1,
+        max_val=500
+    )
+    print_info(f"Batch task: {chips_per_task} chips per task folder")
+
+    # 4. Jalankan Pemotongan
+    chips_dir, count = create_single_raster_chips(
+        raster_path=selected_raster,
+        output_base="data/chips",
+        chip_size=selected_chip_size,
+        chips_per_task=chips_per_task
+    )
+
+    if count == 0 or not chips_dir:
+        print_warning("Tidak ada chip yang berhasil dihasilkan (mungkin citra kosong atau ukuran tidak cocok).")
+        return
+
+    # 5. Pilihan Upload ke Roboflow
+    print_step("Pilihan Upload ke Roboflow")
+    upload_options = [
+        {
+            "name": "🚀 Ya, Upload Batch Chip ke Roboflow Sekarang",
+            "desc": "Kirim task folders langsung ke Roboflow sebagai Annotation Batches",
+            "action": "upload"
+        },
+        {
+            "name": "💾 Simpan Lokal Saja (Lewati Upload)",
+            "desc": "Selesaikan proses dan simpan chip di folder lokal data/chips/",
+            "action": "skip"
+        }
+    ]
+    up_idx = select("Apakah Anda ingin meng-upload chip ke Roboflow?", upload_options, default_index=0)
+
+    if upload_options[up_idx]["action"] == "upload":
+        from .uploader import interactive_upload_flow
+        interactive_upload_flow(chips_dir_path=chips_dir)
+    else:
+        print_success("Proses selesai! Seluruh chip tersimpan secara lokal dan siap digunakan.")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create Paired Chips for Sentinel-2 & GSE")
-    parser.add_argument("--aoi", type=str, default="AOI-1", help="AOI identifier name (e.g. AOI-1, AOI-2)")
-    parser.add_argument("--s2-path", type=str, default=None, help="Explicit path to Sentinel-2 True Color GeoTIFF")
-    parser.add_argument("--gse-path", type=str, default=None, help="Explicit path to GSE GeoTIFF")
-    parser.add_argument("--output-base", type=str, default="data/chips", help="Root directory for chips (default: data/chips)")
-    parser.add_argument("--chip-size", type=int, default=160, help="Tile dimensions in pixels (default: 160)")
-    parser.add_argument("--chips-per-task", type=int, default=5, help="Number of chips per task batch (default: 5)")
-    parser.add_argument("--no-raw-npy", action="store_true", help="Disable saving raw 64-band GSE .npy arrays")
+    import argparse
+    parser = argparse.ArgumentParser(description="GeoChip Tiling Engine")
+    parser.add_argument("--raster", type=str, default=None, help="Path to input GeoTIFF raster")
+    parser.add_argument("--chip-size", type=int, default=640, help="Chip tile size in pixels")
+    parser.add_argument("--chips-per-task", type=int, default=5, help="Number of chips per task batch")
     args = parser.parse_args()
 
-    create_paired_chips(
-        aoi_name=args.aoi,
-        s2_path=args.s2_path,
-        gse_path=args.gse_path,
-        output_base=args.output_base,
-        chip_size=args.chip_size,
-        chips_per_task=args.chips_per_task,
-        save_raw_gse_npy=not args.no_raw_npy,
-    )
+    if args.raster:
+        create_single_raster_chips(
+            raster_path=args.raster,
+            chip_size=args.chip_size,
+            chips_per_task=args.chips_per_task
+        )
+    else:
+        interactive_chipping_workflow()
 
 
 if __name__ == "__main__":
