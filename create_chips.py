@@ -1,5 +1,5 @@
-﻿"""
-Paired Chipping (Tiling) & PCA Visual Generator.
+"""
+Single-Raster Geospatial Chipping & Manifest Generation Tool.
 """
 from geochip.tiler import main
 

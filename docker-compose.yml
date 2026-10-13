@@ -1,0 +1,19 @@
+services:
+  geochip:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geochip
+    image: geochip:latest
+    stdin_open: true # Allows interactive keypresses (arrow keys / Enter)
+    tty: true        # Allocates pseudo-TTY for ANSI colors and live UI
+    volumes:
+      # Mount data directories to persist AOIs, raw GeoTIFFs, and output chips
+      - ./data:/app/data
+      # Mount environment variables (.env) if present
+      - ./.env:/app/.env
+      # Mount Google Earth Engine host credentials cache for seamless authentication
+      - ~/.config/earthengine:/root/.config/earthengine
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python main.py

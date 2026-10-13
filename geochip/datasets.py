@@ -72,22 +72,22 @@ COMPOSITE_METHODS = [
     {
         "id": "median",
         "name": "Median Composite (Standard De-clouding)",
-        "desc": "Mengambil nilai median tiap piksel untuk membuang awan dan bayangan sementara",
+        "desc": "Reduces per-pixel median values to eliminate transient clouds and shadows",
     },
     {
         "id": "q25",
         "name": "First Quartile / 25th Percentile (Copernicus Browser Style)",
-        "desc": "Algoritma resmi Copernicus Quarterly Mosaic untuk visual bersih bebas kabut",
+        "desc": "Official Copernicus Quarterly Mosaic algorithm (first quartile) for clean, haze-free imagery",
     },
     {
         "id": "mean",
         "name": "Mean Average Composite",
-        "desc": "Nilai rata-rata dari seluruh scene yang terkumpul dalam rentang waktu",
+        "desc": "Calculates average pixel values across all acquired scenes in time range",
     },
     {
         "id": "min_cloud",
         "name": "Mosaic by Lowest Cloud Cover",
-        "desc": "Mengurutkan citra berdasarkan awan terendah lalu ditumpuk (mosaic)",
+        "desc": "Orders collection by lowest cloud cover and layers top pixels (mosaic)",
     },
 ]
 

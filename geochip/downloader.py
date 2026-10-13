@@ -7,6 +7,7 @@ import os
 import sys
 import datetime
 from pathlib import Path
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -19,19 +20,11 @@ from .ui import (
     select,
     prompt_input,
     prompt_number,
-    prompt_confirm,
     print_step,
     print_success,
     print_error,
     print_warning,
     print_info,
-    BOLD,
-    CYAN,
-    BRIGHT_CYAN,
-    WHITE,
-    RESET,
-    DIM,
-    BRIGHT_GREEN,
 )
 
 
@@ -57,12 +50,12 @@ def load_aoi_geometry(shp_path):
 
     shp_path = str(shp_path)
     if not os.path.exists(shp_path):
-        raise FileNotFoundError(f"Shapefile '{shp_path}' tidak ditemukan!")
+        raise FileNotFoundError(f"Shapefile '{shp_path}' not found!")
 
     sf = shapefile.Reader(shp_path)
     shapes = sf.shapes()
     if len(shapes) == 0:
-        raise ValueError(f"Shapefile '{shp_path}' tidak memiliki data geometri!")
+        raise ValueError(f"Shapefile '{shp_path}' contains no geometry!")
 
     shape = shapes[0]
     points = [list(pt) for pt in shape.points]
@@ -72,7 +65,7 @@ def load_aoi_geometry(shp_path):
     return ee_polygon, points, bbox
 
 
-def download_stream(url, target_path, desc="Mengunduh Raster"):
+def download_stream(url, target_path, desc="Downloading Raster"):
     """Stream download a file with live progress bar."""
     import requests
     from tqdm import tqdm
@@ -144,71 +137,71 @@ def interactive_download_workflow():
     """
     Interactive Workflow 1: Download Satellite Imagery from Google Earth Engine.
     """
-    print_step("Workflow 1: Download Data Satelit (Earth Engine)")
+    print_step("Workflow 1: Download Satellite Imagery (Earth Engine)")
 
     # 1. Check Authentication
     if not init_earth_engine():
-        print_warning("Earth Engine belum terautentikasi. Memulai proses login...")
+        print_warning("Earth Engine is not authenticated. Initiating login...")
         if not login_flow():
-            print_error("Autentikasi gagal. Silakan jalankan 'python auth_setup.py --login'")
+            print_error("Authentication failed. Please run 'python auth_setup.py --login'")
             return None
 
     import ee
 
-    # 2. Pilih AOI
-    print_info("Memindai file AOI di folder 'data/aoi'...")
+    # 2. Select AOI
+    print_info("Scanning AOI shapefiles in 'data/aoi'...")
     aoi_files = list_available_aois()
     if not aoi_files:
-        print_error("Tidak ada file shapefile (.shp) di 'data/aoi/'!")
-        print_info("Silakan letakkan file ESRI Shapefile Anda di dalam folder 'data/aoi/' terlebih dahulu.")
+        print_error("No ESRI Shapefiles (.shp) found in 'data/aoi/'!")
+        print_info("Please place your AOI shapefile in 'data/aoi/' before proceeding.")
         return None
 
-    aoi_choices = [{"name": f.name, "desc": f"Ukuran: {f.stat().st_size} bytes"} for f in aoi_files]
-    aoi_idx = select("Pilih Area of Interest (AOI):", aoi_choices)
+    aoi_choices = [{"name": f.name, "desc": f"Size: {f.stat().st_size} bytes"} for f in aoi_files]
+    aoi_idx = select("Select Area of Interest (AOI):", aoi_choices)
     selected_aoi_path = aoi_files[aoi_idx]
     aoi_name = selected_aoi_path.stem
 
-    print_info(f"Membaca geometri dari {selected_aoi_path.name}...")
+    print_info(f"Loading geometry from {selected_aoi_path.name}...")
     aoi_geom, _, bbox = load_aoi_geometry(selected_aoi_path)
-    print_success(f"AOI '{aoi_name}' berhasil dimuat (BBox: {bbox[0]:.4f}, {bbox[1]:.4f} s/d {bbox[2]:.4f}, {bbox[3]:.4f})")
+    print_success(f"AOI '{aoi_name}' successfully loaded (BBox: {bbox[0]:.4f}, {bbox[1]:.4f} to {bbox[2]:.4f}, {bbox[3]:.4f})")
 
-    # 3. Pilih Dataset
+    # 3. Select Dataset
     ds_keys = list(DATASETS.keys())
     ds_choices = [
         {"name": f"{DATASETS[k]['name']}", "desc": DATASETS[k]["desc"]}
         for k in ds_keys
     ]
-    ds_idx = select("Pilih Dataset Satelit / Earth Observation:", ds_choices)
+    ds_idx = select("Select Satellite / Earth Observation Dataset:", ds_choices)
     dataset_key = ds_keys[ds_idx]
     ds_info = DATASETS[dataset_key]
-    print_success(f"Dataset terpilih: {ds_info['name']}")
+    print_success(f"Selected dataset: {ds_info['name']}")
 
-    # 4. Rentang Tanggal
+    # 4. Date Range
     today = datetime.date.today()
     default_end = today.strftime("%Y-%m-%d")
     default_start = (today - datetime.timedelta(days=90)).strftime("%Y-%m-%d")
 
-    start_date = prompt_input("Masukkan Rentang Tanggal Mulai (YYYY-MM-DD)", default=default_start)
-    end_date = prompt_input("Masukkan Rentang Tanggal Akhir (YYYY-MM-DD)", default=default_end)
+    start_date = prompt_input("Enter Start Date (YYYY-MM-DD)", default=default_start)
+    end_date = prompt_input("Enter End Date (YYYY-MM-DD)", default=default_end)
 
-    # 5. Filter Cloud Percentage
+    # 5. Cloud Cover Percentage Filter
     max_cloud = 100.0
     if ds_info["type"] == "optical" and ds_info["cloud_prop"]:
         max_cloud = prompt_number(
-            "Batas Maksimum Tutupan Awan (Cloud Cover %) [0 - 100]",
+            "Maximum Cloud Cover Percentage Threshold (%) [0 - 100]",
             default=20.0,
             min_val=0.0,
             max_val=100.0,
             is_float=True
         )
-        print_info(f"Filtering citra optik dengan tutupan awan <= {max_cloud}%")
+        print_info(f"Filtering optical scenes with cloud cover <= {max_cloud}%")
     elif ds_info["type"] == "radar":
-        print_info("Satelit Radar (Sentinel-1) menembus awan dan beroperasi siang/malam. Filter awan dilewati.")
+        print_info("Radar satellites (Sentinel-1 SAR) operate day/night and penetrate clouds. Cloud filter skipped.")
     elif ds_info["type"] == "dem":
-        print_info("Dataset Topografi (DEM) adalah elevasi statis global. Filter awan dilewati.")
+        print_info("Digital Elevation Model (DEM) is a static global elevation dataset. Cloud filter skipped.")
 
-    # 6. Query Earth Engine
-    print_info(f"Mencari citra di katalog Earth Engine ({ds_info['id']})...")
+    # 6. Query Earth Engine Catalog
+    print_info(f"Querying Earth Engine catalog ({ds_info['id']})...")
     try:
         col, scenes = fetch_scenes_list(
             collection_id=ds_info["id"],
@@ -219,55 +212,52 @@ def interactive_download_workflow():
             max_cloud=max_cloud,
         )
     except Exception as e:
-        print_error(f"Gagal melakukan query ke Earth Engine: {e}")
+        print_error(f"Failed to query Earth Engine: {e}")
         return None
 
     total_scenes = len(scenes)
     if total_scenes == 0:
-        print_warning("Tidak ditemukan citra yang sesuai dengan kriteria waktu dan filter awan di AOI ini.")
-        print_info("Saran: Perlebar rentang tanggal atau naikkan batas persentase awan.")
+        print_warning("No scenes found matching the specified date range and cloud filter in this AOI.")
+        print_info("Tip: Expand the date range or increase the cloud cover percentage threshold.")
         return None
 
-    print_success(f"Ditemukan {total_scenes} scene yang cocok!\n")
+    print_success(f"Found {total_scenes} matching scene(s)!\n")
 
-    # 7. Tampilkan List Scene & Pilihan Aksi
-    # Bangun menu pilihan: Tiap scene + Opsi Composite Semua
+    # 7. Scene Listing & Ingestion Mode Selection
     menu_choices = []
-    # Opsi Composite Semua
     menu_choices.append({
-        "name": f"✨ COMPOSITE SEMUA SCENE ({total_scenes} citra tergabung)",
-        "desc": "Gabungkan semua citra untuk menghasilkan mosaik bersih minim awan",
+        "name": f"✨ COMPOSITE ALL SCENES ({total_scenes} acquisitions merged)",
+        "desc": "Merge all scenes with a reducer to generate a clean cloud-free mosaic",
         "action": "composite"
     })
-    # Opsi Scene Individual
     for idx, s in enumerate(scenes):
-        cloud_label = f" | Awan: {s['cloud']}" if s['cloud'] != "N/A" else ""
+        cloud_label = f" | Cloud: {s['cloud']}" if s['cloud'] != "N/A" else ""
         menu_choices.append({
             "name": f"📷 Scene #{idx+1}: {s['short_id']} ({s['date']}{cloud_label})",
-            "desc": f"ID Lengkap: {s['id']}",
+            "desc": f"Full ID: {s['id']}",
             "action": "single",
             "scene": s
         })
 
     choice_idx = select(
-        "Pilih Data yang Ingin Di-download (Single Scene atau Composite):",
+        "Select Ingestion Mode (Single Scene or Full Composite):",
         menu_choices,
         default_index=0
     )
     chosen_item = menu_choices[choice_idx]
 
-    # 8. Proses Image
+    # 8. Process Image
     out_dir = Path("data/raw")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if chosen_item["action"] == "composite":
         comp_idx = select(
-            "Pilih Metode Composite / Mosaicing:",
+            "Select Compositing Reducer Method:",
             [{"name": m["name"], "desc": m["desc"]} for m in COMPOSITE_METHODS],
             default_index=0
         )
         comp_method = COMPOSITE_METHODS[comp_idx]["id"]
-        print_info(f"Memproses Composite menggunakan metode: {COMPOSITE_METHODS[comp_idx]['name']}...")
+        print_info(f"Compositing with method: {COMPOSITE_METHODS[comp_idx]['name']}...")
 
         # Apply cloud mask on collection
         masked_col = col.map(lambda img: mask_clouds(img, dataset_key))
@@ -289,7 +279,7 @@ def interactive_download_workflow():
         # Download Single Scene
         chosen_scene = chosen_item["scene"]
         scene_id = chosen_scene["id"]
-        print_info(f"Memproses citra tunggal: {scene_id}...")
+        print_info(f"Processing single scene: {scene_id}...")
         single_img = ee.Image(scene_id)
         final_img = mask_clouds(single_img, dataset_key)
         date_clean = chosen_scene['date'].split(" ")[0].replace("-", "")
@@ -297,12 +287,12 @@ def interactive_download_workflow():
 
     output_path = out_dir / output_filename
 
-    # 9. Format visualisasi UInt8 GeoTIFF
-    print_info("Menyiapkan visualisasi raster UInt8 True Color...")
+    # 9. Format visualization UInt8 GeoTIFF
+    print_info("Preparing True Color UInt8 GeoTIFF visualization...")
     vis_img = prepare_visual_image(final_img, dataset_key).clip(aoi_geom)
 
     # 10. Generate Download URL & Stream
-    print_info("Membuat URL unduhan langsung dari Google Earth Engine...")
+    print_info("Generating direct download URL from Earth Engine...")
     try:
         url = vis_img.getDownloadURL({
             "scale": ds_info["scale"],
@@ -311,15 +301,15 @@ def interactive_download_workflow():
             "format": "GEO_TIFF",
         })
     except Exception as e:
-        print_error(f"Gagal menghasilkan link unduhan dari GEE: {e}")
-        print_warning("Raster mungkin terlalu besar untuk direct download (limit 48 MB). Pertimbangkan AOI lebih kecil.")
+        print_error(f"Failed to generate download URL from Earth Engine: {e}")
+        print_warning("The requested raster may exceed the 48 MB direct download quota. Consider a smaller AOI.")
         return None
 
-    print_info(f"Menyimpan file ke: {output_path}")
-    download_stream(url, str(output_path), desc=f"Download {output_filename}")
+    print_info(f"Saving file to: {output_path}")
+    download_stream(url, str(output_path), desc=f"Downloading {output_filename}")
 
-    print_success(f"Berhasil mengunduh raster! File tersimpan di: {output_path}")
-    print_info(f"Ukuran file: {output_path.stat().st_size / (1024 * 1024):.2f} MB")
+    print_success(f"Successfully downloaded raster! Saved to: {output_path}")
+    print_info(f"File size: {output_path.stat().st_size / (1024 * 1024):.2f} MB")
 
     return str(output_path)
 

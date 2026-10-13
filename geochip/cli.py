@@ -16,7 +16,7 @@ from .ui import (
     print_warning,
     print_error,
 )
-from .auth import login_flow, test_earth_engine_connection
+from .auth import interactive_auth_menu, login_flow, test_all_connections
 from .downloader import interactive_download_workflow
 from .tiler import interactive_chipping_workflow, create_single_raster_chips
 from .uploader import interactive_upload_flow, upload_chips_to_roboflow
@@ -28,30 +28,30 @@ def interactive_main_menu():
 
     main_menu_choices = [
         {
-            "name": "📥 Workflow 1: Download Data Satelit (Earth Engine)",
-            "desc": "Pilih AOI, Dataset, Rentang Tanggal, Filter Awan, List Scene, Single/Composite",
+            "name": "📥 Workflow 1: Download Satellite Imagery (Earth Engine)",
+            "desc": "Select AOI, Dataset, Date Range, Cloud Filter, Scene Listing, Single/Composite",
             "action": "download",
         },
         {
-            "name": "✂️  Workflow 2: Chipping & Upload ke Roboflow",
-            "desc": "Pilih Raw Raster, Ukuran Clip (160/320/640/1280 px), Batch Task, Roboflow Upload",
+            "name": "✂️  Workflow 2: Chipping & Upload to Roboflow",
+            "desc": "Select Raw Raster, Chip Size (160/320/640/1280 px), Task Batching, Roboflow Upload",
             "action": "chip",
         },
         {
-            "name": "🔑 Setup Autentikasi GEE (OAuth Browser Option A)",
-            "desc": "Login ke Google Earth Engine menggunakan akun Google via browser",
+            "name": "🔑 Setup Credentials & Authentication",
+            "desc": "Configure Google Earth Engine and Roboflow API credentials",
             "action": "auth",
         },
         {
-            "name": "❌ Keluar",
-            "desc": "Tutup aplikasi GeoChip",
+            "name": "❌ Exit",
+            "desc": "Exit GeoChip",
             "action": "exit",
         },
     ]
 
     while True:
         idx = select(
-            "Pilih Workflow yang Ingin Dijalankan:",
+            "Select Workflow to Execute:",
             main_menu_choices,
             default_index=0
         )
@@ -61,28 +61,28 @@ def interactive_main_menu():
             try:
                 interactive_download_workflow()
             except KeyboardInterrupt:
-                print_warning("\nWorkflow Download dibatalkan oleh pengguna.")
+                print_warning("\nDownload workflow cancelled by user.")
             except Exception as e:
-                print_error(f"\nTerjadi kesalahan saat download: {e}")
+                print_error(f"\nAn error occurred during download: {e}")
 
         elif action == "chip":
             try:
                 interactive_chipping_workflow()
             except KeyboardInterrupt:
-                print_warning("\nWorkflow Chipping dibatalkan oleh pengguna.")
+                print_warning("\nChipping workflow cancelled by user.")
             except Exception as e:
-                print_error(f"\nTerjadi kesalahan saat chipping: {e}")
+                print_error(f"\nAn error occurred during chipping: {e}")
 
         elif action == "auth":
             try:
-                login_flow()
+                interactive_auth_menu()
             except KeyboardInterrupt:
-                print_warning("\nProses autentikasi dibatalkan.")
+                print_warning("\nAuthentication setup cancelled by user.")
             except Exception as e:
-                print_error(f"\nTerjadi kesalahan saat autentikasi: {e}")
+                print_error(f"\nAn error occurred during authentication setup: {e}")
 
         elif action == "exit":
-            print_info("Terima kasih telah menggunakan GeoChip. Sampai jumpa!")
+            print_info("Thank you for using GeoChip. Goodbye!")
             sys.exit(0)
 
         print("\n" + "-" * 60)
@@ -97,9 +97,10 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Available subcommands")
 
     # 1. Auth subcommand
-    auth_parser = subparsers.add_parser("auth", help="Google Earth Engine OAuth setup & diagnostics")
-    auth_parser.add_argument("--login", action="store_true", help="Launch interactive browser OAuth login")
+    auth_parser = subparsers.add_parser("auth", help="Manage Earth Engine and Roboflow credentials")
+    auth_parser.add_argument("--login", action="store_true", help="Launch interactive browser OAuth login for Earth Engine")
     auth_parser.add_argument("--project", type=str, default=None, help="Google Cloud Project ID")
+    auth_parser.add_argument("--roboflow", action="store_true", help="Configure Roboflow credentials")
 
     # 2. Download subcommand
     dl_parser = subparsers.add_parser("download", help="Download satellite rasters from GEE")
@@ -122,7 +123,7 @@ def main():
 
     args = parser.parse_args()
 
-    # If no arguments provided, launch interactive Antigravity/Claude Code menu
+    # If no arguments provided, launch interactive menu
     if not args.command:
         interactive_main_menu()
         return
@@ -130,8 +131,11 @@ def main():
     if args.command == "auth":
         if args.login:
             login_flow(project_id=args.project)
+        elif args.roboflow:
+            from .auth import setup_roboflow_credentials
+            setup_roboflow_credentials()
         else:
-            test_earth_engine_connection()
+            interactive_auth_menu()
 
     elif args.command == "download":
         interactive_download_workflow()

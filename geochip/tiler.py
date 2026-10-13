@@ -13,7 +13,6 @@ import numpy as np
 from .ui import (
     select,
     prompt_number,
-    prompt_confirm,
     print_step,
     print_success,
     print_error,
@@ -23,10 +22,10 @@ from .ui import (
 
 
 CHIP_SIZES = [
-    {"name": "160 x 160 px", "size": 160, "desc": "Ukuran standar deteksi objek kecil (Sentinel-2 10m / drone)"},
-    {"name": "320 x 320 px", "size": 320, "desc": "Ukuran ideal resolusi menengah (YOLOv8 / Faster-RCNN)"},
-    {"name": "640 x 640 px", "size": 640, "desc": "Ukuran standar Roboflow & YOLO default (Area cakupan luas)"},
-    {"name": "1280 x 1280 px", "size": 1280, "desc": "Ukuran resolusi tinggi / konteks spasial sangat luas"},
+    {"name": "160 x 160 px", "size": 160, "desc": "Standard size for small object detection (Sentinel-2 10m / UAV)"},
+    {"name": "320 x 320 px", "size": 320, "desc": "Ideal resolution for medium-scale models (YOLOv8 / Faster R-CNN)"},
+    {"name": "640 x 640 px", "size": 640, "desc": "Standard Roboflow & YOLO default resolution (Wide area context)"},
+    {"name": "1280 x 1280 px", "size": 1280, "desc": "High-resolution / ultra-wide spatial context"},
 ]
 
 
@@ -89,7 +88,7 @@ def format_raster_to_rgb(data):
         stacked = np.stack([b1, b2, b3], axis=0)
         return format_raster_to_rgb(stacked)
 
-    raise ValueError(f"Dimensi raster tidak didukung: {data.shape}")
+    raise ValueError(f"Unsupported raster dimensions: {data.shape}")
 
 
 def create_single_raster_chips(
@@ -105,21 +104,21 @@ def create_single_raster_chips(
     """
     raster_path = Path(raster_path)
     if not raster_path.exists():
-        raise FileNotFoundError(f"File raster '{raster_path}' tidak ditemukan!")
+        raise FileNotFoundError(f"Raster file '{raster_path}' not found!")
 
     try:
         import rasterio
         from PIL import Image
     except ImportError as e:
-        print_error(f"Dependensi yang diperlukan belum terpasang: {e}")
-        print_info("Silakan jalankan: pip install -r requirements.txt")
+        print_error(f"Required dependencies are not installed: {e}")
+        print_info("Please run: pip install -r requirements.txt")
         return None, 0
 
     raster_stem = raster_path.stem
     out_dir = Path(output_base) / raster_stem
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    print_info(f"Membuka file raster: {raster_path.name}")
+    print_info(f"Opening raster file: {raster_path.name}")
     with rasterio.open(str(raster_path)) as src:
         transform = src.transform
         crs = src.crs
@@ -127,11 +126,11 @@ def create_single_raster_chips(
         height = src.height
         count = src.count
 
-        print_info(f"Dimensi raster: {width} x {height} px ({count} band) | CRS: {crs}")
+        print_info(f"Raster dimensions: {width} x {height} px ({count} bands) | CRS: {crs}")
         raw_data = src.read()
 
     # Convert to RGB image for chip generation
-    print_info("Mengonversi data raster ke format visual RGB...")
+    print_info("Formatting raster data to visual RGB...")
     rgb_data = format_raster_to_rgb(raw_data)
     H, W, _ = rgb_data.shape
 
@@ -141,10 +140,10 @@ def create_single_raster_chips(
     total_grid = n_rows * n_cols
 
     if total_grid == 0:
-        print_error(f"Ukuran raster ({W}x{H} px) lebih kecil daripada ukuran chip ({chip_size}x{chip_size} px)!")
+        print_error(f"Raster dimensions ({W}x{H} px) are smaller than chip size ({chip_size}x{chip_size} px)!")
         return None, 0
 
-    print_info(f"Grid pemotongan: {n_rows} baris x {n_cols} kolom ({total_grid} potensi chip)")
+    print_info(f"Tiling grid: {n_rows} rows x {n_cols} cols ({total_grid} potential chips)")
 
     manifest = []
     chip_counter = 0
@@ -210,53 +209,53 @@ def create_single_raster_chips(
     with open(str(manifest_path), "w") as f:
         json.dump(manifest_data, f, indent=2)
 
-    print_success(f"Pemotongan selesai! Berhasil membuat {chip_counter} chip.")
-    print_info(f"Folder output: {out_dir}")
-    print_info(f"File manifest tersimpan di: {manifest_path}")
+    print_success(f"Tiling complete! Successfully generated {chip_counter} chip(s).")
+    print_info(f"Output directory: {out_dir}")
+    print_info(f"Manifest file saved at: {manifest_path}")
 
     return str(out_dir), chip_counter
 
 
 def interactive_chipping_workflow():
     """
-    Interactive Workflow 2: Chipping & Upload ke Roboflow.
+    Interactive Workflow 2: Chipping & Upload to Roboflow.
     """
-    print_step("Workflow 2: Chipping & Upload ke Roboflow")
+    print_step("Workflow 2: Chipping & Upload to Roboflow")
 
-    # 1. Pilih Raster dari data/raw
+    # 1. Select Raster from data/raw
     raw_files = list_available_raw_rasters()
     if not raw_files:
-        print_error("Tidak ada file raster GeoTIFF (.tif) di 'data/raw/'!")
-        print_info("Silakan jalankan Workflow 1 (Download Data) terlebih dahulu, atau masukkan file .tif ke 'data/raw/'.")
+        print_error("No GeoTIFF rasters (.tif) found in 'data/raw/'!")
+        print_info("Please run Workflow 1 (Download Data) first, or place your .tif raster in 'data/raw/'.")
         return
 
     raster_choices = [
-        {"name": f.name, "desc": f"Ukuran: {f.stat().st_size / (1024*1024):.2f} MB"}
+        {"name": f.name, "desc": f"Size: {f.stat().st_size / (1024*1024):.2f} MB"}
         for f in raw_files
     ]
-    raster_idx = select("Pilih File Raw Raster yang Ingin Dipotong (Chip):", raster_choices)
+    raster_idx = select("Select Raw Raster to Chip:", raster_choices)
     selected_raster = raw_files[raster_idx]
-    print_success(f"Raster terpilih: {selected_raster.name}")
+    print_success(f"Selected raster: {selected_raster.name}")
 
-    # 2. Pilih Ukuran Clip
+    # 2. Select Chip Size
     size_choices = [
         {"name": s["name"], "desc": s["desc"]}
         for s in CHIP_SIZES
     ]
-    size_idx = select("Pilih Ukuran Potongan Clip (Pixel Size):", size_choices, default_index=2)
+    size_idx = select("Select Chip Tile Size (Pixels):", size_choices, default_index=2)
     selected_chip_size = CHIP_SIZES[size_idx]["size"]
-    print_success(f"Ukuran clip: {selected_chip_size} x {selected_chip_size} px")
+    print_success(f"Chip size: {selected_chip_size} x {selected_chip_size} px")
 
-    # 3. Tentukan Batch Task (Chips per Task)
+    # 3. Specify Chips per Task Batch
     chips_per_task = prompt_number(
-        "Tentukan Jumlah Chip dalam Tiap Batch Task",
+        "Specify Number of Chips per Task Batch",
         default=5,
         min_val=1,
         max_val=500
     )
-    print_info(f"Batch task: {chips_per_task} chips per task folder")
+    print_info(f"Batch task size: {chips_per_task} chips per task folder")
 
-    # 4. Jalankan Pemotongan
+    # 4. Execute Chipping
     chips_dir, count = create_single_raster_chips(
         raster_path=selected_raster,
         output_base="data/chips",
@@ -265,30 +264,30 @@ def interactive_chipping_workflow():
     )
 
     if count == 0 or not chips_dir:
-        print_warning("Tidak ada chip yang berhasil dihasilkan (mungkin citra kosong atau ukuran tidak cocok).")
+        print_warning("No valid chips were generated (raster might be empty or nodata).")
         return
 
-    # 5. Pilihan Upload ke Roboflow
-    print_step("Pilihan Upload ke Roboflow")
+    # 5. Roboflow Upload Options
+    print_step("Roboflow Upload Options")
     upload_options = [
         {
-            "name": "🚀 Ya, Upload Batch Chip ke Roboflow Sekarang",
-            "desc": "Kirim task folders langsung ke Roboflow sebagai Annotation Batches",
+            "name": "🚀 Yes, Upload Chip Batches to Roboflow Now",
+            "desc": "Send task folders directly to Roboflow as Annotation Batches",
             "action": "upload"
         },
         {
-            "name": "💾 Simpan Lokal Saja (Lewati Upload)",
-            "desc": "Selesaikan proses dan simpan chip di folder lokal data/chips/",
+            "name": "💾 Save Locally Only (Skip Upload)",
+            "desc": "Complete process and keep chips stored in local data/chips/ folder",
             "action": "skip"
         }
     ]
-    up_idx = select("Apakah Anda ingin meng-upload chip ke Roboflow?", upload_options, default_index=0)
+    up_idx = select("Would you like to upload chips to Roboflow?", upload_options, default_index=0)
 
     if upload_options[up_idx]["action"] == "upload":
         from .uploader import interactive_upload_flow
         interactive_upload_flow(chips_dir_path=chips_dir)
     else:
-        print_success("Proses selesai! Seluruh chip tersimpan secara lokal dan siap digunakan.")
+        print_success("Process complete! All chips are saved locally and ready to use.")
 
 
 def main():

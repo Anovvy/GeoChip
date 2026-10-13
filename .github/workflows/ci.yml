@@ -1,0 +1,72 @@
+name: GeoChip CI (Lint & Test)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Code Quality & Linting (Workflow A)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Linting Tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff
+
+      - name: Run Ruff Lint Check
+        run: |
+          ruff check . --select=E9,F63,F7,F82
+
+  test:
+    name: Automated Unit Tests (Workflow B)
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install System Geospatial Libraries (GDAL)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev libspatialindex-dev
+
+      - name: Install Project Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pytest
+          pip install -e .
+
+      - name: Run Offline Unit & Integration Tests
+        run: |
+          pytest tests/ -v
+
+      - name: Verify CLI Entry Points
+        run: |
+          python main.py --help
+          python download_data.py --help
+          python create_chips.py --help
+          python upload_roboflow.py --help
+          python auth_setup.py --help

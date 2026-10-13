@@ -5,62 +5,74 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Python-3.9%2B-blue.svg" alt="Python 3.9+">
+  <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python Versions">
+  <img src="https://img.shields.io/badge/Docker-Container_Ready-2496ED.svg?logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
-  <img src="https://img.shields.io/badge/Google_Earth_Engine-OAuth_Option_A-red.svg" alt="Earth Engine">
+  <img src="https://img.shields.io/badge/Google_Earth_Engine-Interactive_Auth-red.svg" alt="Earth Engine">
   <img src="https://img.shields.io/badge/Satellites-Sentinel--2_|_Landsat_|_Sentinel--1_SAR_|_MODIS_|_DEM-orange.svg" alt="Multi-Satellite">
   <img src="https://img.shields.io/badge/Roboflow-Annotation_Pipeline-purple.svg" alt="Roboflow">
 </p>
+
+```text
+  ██████╗ ███████╗ ██████╗  ██████╗██╗  ██╗██╗██████╗ 
+ ██╔════╝ ██╔════╝██╔═══██╗██╔════╝██║  ██║██║██╔══██╗
+ ██║  ███╗█████╗  ██║   ██║██║     ███████║██║██████╔╝
+ ██║   ██║██╔══╝  ██║   ██║██║     ██╔══██║██║██╔═══╝ 
+ ╚██████╔╝███████╗╚██████╔╝╚██████╗██║  ██║██║██║     
+  ╚═════╝ ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚═╝╚═╝     
+  Geospatial Earth Observation Pipeline & Roboflow Ingestion
+  Interactive CLI Engine v2.0
+```
 
 ---
 
 ## 📌 Overview
 
-**GeoChip** is an interactive, production-grade geospatial data preparation and computer vision pipeline designed for remote sensing engineers, geospatial data scientists, and ML practitioners. 
+**GeoChip** is a production-ready geospatial data preparation and computer vision pipeline designed for remote sensing engineers, geospatial data scientists, and ML practitioners. 
 
-GeoChip features a modern terminal user interface (inspired by interactive tools like Antigravity and Claude Code) allowing users to effortlessly discover, filter, composite, download, tile, and upload satellite data directly into annotation pipelines.
+GeoChip features an interactive terminal user interface (inspired by modern developer tools like Antigravity and Claude Code) allowing users to discover, filter, composite, download, tile, and upload satellite data directly into computer vision annotation pipelines—either on a local machine or inside an isolated **Docker** container.
 
 ### 🌟 Key Highlights
 
-- **Interactive Terminal Experience**: Smooth, arrow-key navigation (`↑/↓` + `Enter`), dynamic live status banners, and intuitive prompts for selecting datasets, dates, thresholds, and workflows.
+- **Interactive Terminal Experience**: Seamless arrow-key navigation (`↑/↓` + `Enter`), dynamic status banners, and guided prompts for selecting datasets, dates, thresholds, and workflows.
 - **Multi-Sensor Earth Observation Catalog**:
-  - **Copernicus Sentinel-2 L2A (10m)**: High-resolution multispectral imagery with QA60 / SCL cloud masking.
-  - **USGS Landsat 9 OLI-2 & Landsat 8 OLI C2 L2 (30m)**: Accurate surface reflectance with QA_PIXEL masking.
-  - **Copernicus Sentinel-1 SAR GRD (10m)**: C-Band Synthetic Aperture Radar (all-weather, day & night, penetrates clouds).
-  - **MODIS Terra Daily Surface Reflectance (250m/500m)**: High temporal frequency for large-area monitoring.
+  - **Copernicus Sentinel-2 L2A (10m)**: High-resolution multispectral optical imagery with QA60 and SCL cloud masking.
+  - **USGS Landsat 9 OLI-2 & Landsat 8 OLI C2 L2 (30m)**: Calibrated surface reflectance with QA_PIXEL masking.
+  - **Copernicus Sentinel-1 SAR GRD (10m)**: C-Band Synthetic Aperture Radar (all-weather, day & night, cloud-penetrating).
+  - **MODIS Terra Daily Surface Reflectance (250m/500m)**: High temporal revisit for regional and time-series monitoring.
   - **NASA SRTM Digital Elevation Model (30m)**: Global topography and terrain elevation.
-- **Flexible Date & Cloud Filtering**: Set custom start/end dates and cloud cover percentage thresholds (0–100%).
-- **Scene Discovery & Dual Ingestion Modes**: Inspect all matching scene IDs, dates, and cloud percentages with the option to:
-  - **Download a Single Scene**: Choose any individual scene (e.g., the clearest single acquisition).
-  - **Generate a Composite**: Merge all matching scenes using customizable reducers (**Median**, **Copernicus Q2 25th Percentile**, **Mean**, or **Min-Cloud Mosaic**).
+- **Flexible Date & Cloud Filtering**: Set custom observation windows (start and end dates) and cloud cover percentage thresholds (0–100%).
+- **Scene Discovery & Dual Ingestion Modes**: Inspect all matching scene IDs, dates, and cloud percentages with the choice to:
+  - **Download a Single Scene**: Choose an individual acquisition (e.g., the clearest single acquisition).
+  - **Generate a Composite**: Merge multiple scenes using customizable reducers (**Median**, **Copernicus Q2 25th Percentile**, **Mean**, or **Min-Cloud Mosaic**).
 - **Single-Raster Chipping Engine**: Slices downloaded GeoTIFFs into uniform tiles (**160×160**, **320×320**, **640×640**, or **1280×1280 px**) with valid-coverage filtering and automatic RGB/Grayscale normalization.
-- **Batch Task Organization & Georeferenced Manifest**: Groups tiles into task batches (e.g., 5, 10, or 20 chips per task) indexed by a standardized `manifest.json` with WGS84 geographic coordinates.
+- **Batch Task Organization & Georeferenced Manifest**: Groups tiles into task batches (e.g., 5, 10, or 20 chips per task) indexed by a standardized `manifest.json` with WGS84 geographic bounding boxes.
 - **Interactive Roboflow Ingestion**: Direct upload to target Roboflow projects as distinct Annotation Batches, or save locally and skip uploading.
-- **Streamlined GEE Authentication**: Uses official Google Earth Engine browser-based OAuth (**Option A**), removing service account complexities.
+- **Docker Containerization**: Eliminates C++ geospatial library conflicts (GDAL, PROJ, GEOS) across different operating systems with a single command.
 
 ---
 
-## 🏗️ Architecture & Workflows
+## 🏗️ Architecture & Pipeline Flow
 
 ```mermaid
 flowchart TD
-    subgraph W1[Workflow 1: Download Data Satelit]
-        A[AOI Shapefile\ndata/aoi/*.shp] --> B[Pilih Dataset\nS2 / L8 / L9 / S1 SAR / MODIS / DEM]
-        B --> C[Rentang Tanggal & Filter Awan %]
-        C --> D[Query GEE & Tampilkan List Scene]
-        D -->|Pilih Single Scene| E1[Download Single Scene]
-        D -->|Pilih Composite| E2[Composite Mosaicing\nMedian / Q25 / Mean / Min-Cloud]
+    subgraph W1[Workflow 1: Download Satellite Imagery]
+        A[AOI Shapefile\ndata/aoi/*.shp] --> B[Select Dataset\nS2 / L8 / L9 / S1 SAR / MODIS / DEM]
+        B --> C[Date Range & Cloud Cover Filter]
+        C --> D[Query GEE & Display Scene List]
+        D -->|Select Single Scene| E1[Download Single Scene]
+        D -->|Select Composite| E2[Composite Reducer\nMedian / Q25 / Mean / Min-Cloud]
         E1 --> F[Raw GeoTIFF Raster\ndata/raw/*.tif]
         E2 --> F
     end
 
-    subgraph W2[Workflow 2: Chipping & Upload]
-        F --> G[Pilih Ukuran Potongan\n160 / 320 / 640 / 1280 px]
-        G --> H[Tentukan Batch Task\nMisal: 5 chips/task]
+    subgraph W2[Workflow 2: Chipping & Roboflow Upload]
+        F --> G[Select Chip Size\n160 / 320 / 640 / 1280 px]
+        G --> H[Specify Task Batch Size\ne.g., 5 chips per task]
         H --> I[Chipping Engine & manifest.json\ndata/chips/<raster>/task*/]
-        I --> J{Pilihan Upload Roboflow?}
-        J -->|Ya| K[Roboflow Annotation Batches\nReady for Labeling]
-        J -->|Lewati| L[Simpan Lokal Selesai]
+        I --> J{Upload to Roboflow?}
+        J -->|Yes| K[Roboflow Annotation Batches\nReady for Labeling]
+        J -->|Skip| L[Local Storage Completed]
     end
 ```
 
@@ -70,24 +82,33 @@ flowchart TD
 
 ```text
 GeoChip/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # CI: Linting & offline unit tests across Python 3.10-3.12
+│       └── docker-publish.yml  # CD: Automated Docker image build and push to GHCR
 ├── data/
 │   ├── aoi/                    # ESRI Shapefiles defining Areas of Interest (AOI)
 │   ├── raw/                    # Downloaded GeoTIFF rasters (gitignored)
 │   └── chips/                  # Tiled image chips & manifest.json (gitignored)
 ├── geochip/                    # Core Python package
 │   ├── __init__.py             # Package exports and version (v2.0.0)
-│   ├── auth.py                 # Google Earth Engine browser OAuth (Option A)
+│   ├── auth.py                 # Interactive Earth Engine & Roboflow credentials management
 │   ├── datasets.py             # Earth Observation dataset registry & cloud masks
 │   ├── downloader.py           # Interactive scene query, compositing & download engine
 │   ├── tiler.py                # Single-raster tiling (160/320/640/1280 px) & manifest
 │   ├── uploader.py             # Roboflow batch annotation uploader
 │   ├── ui.py                   # Terminal UI engine (arrow keys, formatting, colors)
 │   └── cli.py                  # Unified interactive & argument-driven CLI
+├── tests/
+│   └── test_pipeline.py        # Offline unit & integration tests (dummy synthetic rasters)
 ├── main.py                     # Primary interactive CLI entry point
-├── auth_setup.py               # Standalone runner for GEE OAuth setup
+├── auth_setup.py               # Standalone runner for credentials setup
 ├── download_data.py            # Standalone runner for Workflow 1 (Download)
 ├── create_chips.py             # Standalone runner for Workflow 2 (Chipping)
 ├── upload_roboflow.py          # Standalone runner for Roboflow batch upload
+├── Dockerfile                  # Container definition with GDAL system libraries
+├── docker-compose.yml          # Docker Compose with volume mounts & interactive TTY
+├── .dockerignore               # Docker build context exclusions
 ├── .env.example                # Template for environment variables and API keys
 ├── .gitignore                  # Git ignore rules for rasters, chips, and secrets
 ├── LICENSE                     # MIT License
@@ -99,60 +120,136 @@ GeoChip/
 
 ## ⚡ Quickstart
 
-### 1. Installation
+You can run GeoChip using either **Method 1 (Docker - Recommended)** to avoid installing geospatial C++ libraries on your host system, or **Method 2 (Local Python Environment)**.
 
-Clone this repository and create a Python virtual environment:
+---
+
+### Method 1: Using Docker (Recommended)
+
+Docker isolates all underlying geospatial dependencies (GDAL, PROJ, GEOS) inside a pre-configured Linux container.
+
+#### Beginner Setup Guide for Docker Desktop
+
+<details>
+<summary><b> Click here for Windows Setup Guide</b></summary>
+
+Follow these steps if you are setting up Docker Desktop on Windows for the first time:
+
+1. **Verify Hardware Virtualization:** Open Windows Task Manager (`Ctrl + Shift + Esc`) > **Performance** > **CPU** > confirm that **Virtualization: Enabled** is shown. (If disabled, enable Intel VT-x or AMD-V in your BIOS/UEFI settings).
+2. **Install WSL 2 (Windows Subsystem for Linux):**
+   - Open **PowerShell** as Administrator.
+   - Run:
+     ```powershell
+     wsl --install
+     ```
+   - If WSL is already installed, update it to the latest version:
+     ```powershell
+     wsl --update
+     ```
+   - Restart your computer if prompted.
+3. **Download & Install Docker Desktop:**
+   - Download the installer from the [Official Docker Desktop for Windows Guide](https://docs.docker.com/desktop/setup/install/windows-install/).
+   - Run the installer and ensure the option **"Use WSL 2 instead of Hyper-V"** is checked.
+4. **Skip Account Sign-In / Survey (Optional):**
+   - When Docker Desktop launches, an account is **not required** for local usage.
+   - Click **"Continue without signing in"** (or "Skip") and dismiss the survey.
+5. **Keep Docker Desktop Running:**
+   - Docker Desktop must be running (green whale icon in the Windows taskbar system tray) when executing GeoChip.
+   - *Tip:* Go to **Settings (Gear Icon) > General** and check **"Start Docker Desktop when you log in"**.
+
+</details>
+
+<details>
+<summary><b> Click here for macOS Setup Guide</b></summary>
+
+Follow these steps for macOS:
+
+1. **Identify Mac Chip:** Click the Apple logo () > **About This Mac**. Check whether your Mac uses **Apple Silicon** (M1/M2/M3/M4) or an **Intel Processor**.
+2. **Download & Install Docker Desktop:**
+   - Visit the [Official Docker Desktop for Mac Guide](https://docs.docker.com/desktop/setup/install/mac-install/).
+   - Select **"Mac with Apple chip"** or **"Mac with Intel chip"** according to your machine.
+   - Open `Docker.dmg`, drag the Docker icon to your **Applications** folder, and launch Docker.
+3. **Skip Account Sign-In / Survey (Optional):**
+   - Click **"Continue without signing in"** (or "Skip").
+4. **Keep Docker Desktop Running:**
+   - Ensure the Docker whale icon is active in the top menu bar before running GeoChip.
+
+</details>
+
+---
+
+#### Running with Docker Compose
+
+With Docker Desktop running, open a terminal in the cloned repository directory and execute:
 
 ```bash
+docker compose run --rm geochip
+```
+
+> [!TIP]
+> The provided [docker-compose.yml](file:///c:/Users/bayun/OneDrive/Documents/GitHub/GeoChip/docker-compose.yml) is pre-configured with:
+> - **Volume Mount `./data:/app/data`**: All input AOIs, downloaded GeoTIFFs, and generated chips persist directly on your host machine.
+> - **Shared GEE Credentials**: Mounts `~/.config/earthengine` from your host machine so you do not need to re-authenticate inside the container.
+> - **Interactive TTY**: Enables keyboard navigation (`↑/↓` arrows, Enter) and ANSI colors inside Docker.
+
+Alternatively, running with standard Docker commands:
+```bash
+# Build image
+docker build -t geochip .
+
+# Run interactively
+docker run -it --rm -v ${PWD}/data:/app/data geochip
+```
+
+---
+
+### Method 2: Using Local Python Environment
+
+If you prefer to run directly on your host machine:
+
+```bash
+# 1. Clone repository
 git clone https://github.com/<your-username>/GeoChip.git
 cd GeoChip
 
-# Create virtual environment
+# 2. Create virtual environment (Python 3.10 - 3.12)
 python -m venv .venv
 
-# Activate virtual environment
+# 3. Activate virtual environment
 # Windows PowerShell:
 .\.venv\Scripts\Activate.ps1
 # Linux / macOS:
 source .venv/bin/activate
 
-# Install dependencies
+# 4. Install dependencies
 pip install -r requirements.txt
-```
 
-*(Optional) Install in editable mode for the `geochip` terminal command:*
-```bash
+# (Optional) Install in editable mode to enable the 'geochip' CLI command
 pip install -e .
+
+# 5. Launch GeoChip
+python main.py
 ```
 
 ---
 
-## 🔑 Authentication & Secrets Management
+## 🔑 Authentication & Credentials Setup
 
-### 1. Google Earth Engine (Option A: Browser OAuth)
-GeoChip uses **Option A** (browser OAuth):
-1. Pastikan Anda memiliki akun [Google Earth Engine](https://code.earthengine.google.com/register).
-2. Siapkan **Google Cloud Project ID** Anda (contoh: `my-gee-project-123`).
-3. Jalankan perintah autentikasi:
-   ```bash
-   python auth_setup.py --login
-   ```
-4. Browser akan terbuka otomatis. Login dengan akun Google Anda dan berikan izin. Token akan disimpan aman di kredensial lokal mesin Anda, dan Project ID akan disimpan ke file `.env`.
+GeoChip connects to **Google Earth Engine (GEE)** and **Roboflow**. Both can be configured directly through the terminal UI.
 
-### 2. Secrets Management (Lokal vs GitHub Secrets)
+### Configuring Credentials via Terminal UI (Recommended)
+You can configure and verify all credentials without editing files manually:
+1. Run `python main.py` and select **`🔑 Setup Credentials & Authentication`**.
+2. **Google Earth Engine Login**: Opens your web browser automatically to authenticate your Google account and caches the token locally in `~/.config/earthengine`.
+3. **Roboflow Setup**: Prompts for your Private API Key, Workspace Slug, and Project ID, saving them securely to `.env`.
+4. **Test Connections**: Validates that both services are accessible and authenticated.
 
-> [!IMPORTANT]
-> **Penyimpanan Lokal vs Remote:**
-> - **Lokal:** Semua API key dan ID rahasia (seperti `ROBOFLOW_API_KEY`, `ROBOFLOW_WORKSPACE`, `ROBOFLOW_PROJECT`, `EE_PROJECT_ID`) disimpan di file `.env` di root repository. File `.env` **sudah otomatis masuk `.gitignore`** sehingga tidak akan pernah ter-commit atau bocor ke publik.
-> - **GitHub Secrets:** Git `push` secara desain **tidak mengirimkan secret** ke GitHub demi keamanan. Untuk menyinkronkan secret ke GitHub Actions / repository remote:
->   1. **Via Web:** Buka repositori GitHub > **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
->   2. **Via GitHub CLI (`gh`):**
->      ```bash
->      gh secret set ROBOFLOW_API_KEY --body "your_key_here"
->      gh secret set EE_PROJECT_ID --body "your_project_id"
->      ```
-
-Contoh konfigurasi `.env`:
+### Manual Configuration via `.env` (Alternative)
+Copy the template [`.env.example`](file:///c:/Users/bayun/OneDrive/Documents/GitHub/GeoChip/.env.example) to `.env`:
+```bash
+cp .env.example .env
+```
+Fill in your credentials:
 ```env
 EE_PROJECT_ID=my-gcp-project-id
 ROBOFLOW_API_KEY=your_private_api_key_here
@@ -160,82 +257,73 @@ ROBOFLOW_WORKSPACE=my-workspace-slug
 ROBOFLOW_PROJECT=satellite-object-detection
 ```
 
+> [!NOTE]
+> The `.env` file is automatically ignored by `.gitignore` to prevent confidential keys from being committed to source control.
+
 ---
 
-## 🚀 Interactive CLI Usage
+## 🚀 Interactive CLI Walkthrough
 
-Jalankan perintah utama untuk membuka antarmuka interaktif:
-
+Launch the application:
 ```bash
 python main.py
 ```
 
-Anda akan disuguhkan menu interaktif:
+The interactive menu will display:
 
 ```text
-  ██████╗ ███████╗ ██████╗  ██████╗██╗  ██╗██╗██████╗ 
- ██╔════╝ ██╔════╝██╔═══██╗██╔════╝██║  ██║██║██╔══██╗
- ██║  ███╗█████╗  ██║   ██║██║     ███████║██║██████╔╝
- ██║   ██║██╔══╝  ██║   ██║██║     ██╔══██║██║██╔═══╝ 
- ╚██████╔╝███████╗╚██████╔╝╚██████╗██║  ██║██║██║     
-  ╚═════╝ ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚═╝╚═╝     
-  Geospatial Earth Observation Pipeline & Roboflow Ingestion
-
- ? Pilih Workflow yang Ingin Dijalankan:
-   ❯ [1] 📥 Workflow 1: Download Data Satelit (Earth Engine)
-     [2] ✂️  Workflow 2: Chipping & Upload ke Roboflow
-     [3] 🔑 Setup Autentikasi GEE (OAuth Browser Option A)
-     [4] ❌ Keluar
+? Select Workflow to Execute:
+  ❯ [1] 📥 Workflow 1: Download Satellite Imagery (Earth Engine)
+    [2] ✂️  Workflow 2: Chipping & Upload to Roboflow
+    [3] 🔑 Setup Credentials & Authentication
+    [4] ❌ Exit
 ```
 
 ---
 
-### 📥 Workflow 1: Download Data Satelit
-
-Langkah-langkah interaktif:
-1. **Pilih AOI**: Sistem otomatis mendeteksi shapefile di `data/aoi/` (misal: `AOI-1.shp`).
-2. **Pilih Dataset Satelit**:
+### 📥 Workflow 1: Download Satellite Imagery
+1. **Select AOI**: Automatically detects shapefiles in `data/aoi/` (e.g., `AOI-1.shp`).
+2. **Select Satellite Dataset**:
    - `Copernicus Sentinel-2 L2A (10m)`
    - `USGS Landsat 9 OLI-2 / TIRS-2 C2 L2 (30m)`
    - `USGS Landsat 8 OLI / TIRS C2 L2 (30m)`
-   - `Copernicus Sentinel-1 SAR GRD (10m Radar - Tembus Awan)`
+   - `Copernicus Sentinel-1 SAR GRD (10m Radar - Cloud-Proof)`
    - `MODIS Terra Daily Surface Reflectance (250m/500m)`
-   - `NASA SRTM Digital Elevation Model (30m Topografi)`
-3. **Pilih Rentang Tanggal**: Masukkan tanggal mulai & akhir (format `YYYY-MM-DD`).
-4. **Filter Cloud Percentage**: Masukkan batas maksimal tutupan awan (misal `20%`). *Catatan: Otomatis dilewati untuk radar dan DEM.*
-5. **Daftar Scene & Pilihan Unduhan**:
-   - Menampilkan tabel scene (ID scene, tanggal capture, persentase awan).
-   - Opsi: **Unduh Single Scene** pilihan Anda, ATAU **Composite Seluruh Scene** dengan reducer:
-     - *Median Composite* (standar de-clouding)
-     - *Copernicus Q2 25th Percentile* (kualitas visual kontras tinggi)
+   - `NASA SRTM Digital Elevation Model (30m Topography)`
+3. **Select Date Range**: Enter start and end dates (format `YYYY-MM-DD`).
+4. **Cloud Cover Filter**: Enter maximum acceptable cloud percentage (e.g., `20%`). *Automatically skipped for Radar and DEM datasets*.
+5. **Scene Listing & Ingestion Mode**:
+   - Displays all matching acquisitions (Scene ID, capture date, cloud cover percentage).
+   - **Download Single Scene**: Select an individual acquisition.
+   - **Composite All Scenes**: Merge scenes using a reducer:
+     - *Median Composite* (standard de-clouding)
+     - *Copernicus Q2 25th Percentile* (high-contrast, haze-free)
      - *Mean Average Composite*
      - *Min-Cloud Mosaic*
-6. **Ekspor & Download**: Hasil raster disimpan langsung ke `data/raw/<dataset>_<aoi>_<metadata>.tif` dalam format UInt8 GeoTIFF siap pakai.
+6. **Export & Download**: The raster is exported directly to `data/raw/<dataset>_<aoi>_<metadata>.tif` as a clean True Color UInt8 GeoTIFF.
 
 ---
 
-### ✂️ Workflow 2: Chipping & Upload ke Roboflow
-
-Langkah-langkah interaktif:
-1. **Pilih Raw Raster**: Pilih citra GeoTIFF yang ada di folder `data/raw/`.
-2. **Pilih Ukuran Potongan Clip**:
+### ✂️ Workflow 2: Chipping & Upload to Roboflow
+1. **Select Raw Raster**: Choose any GeoTIFF raster located in `data/raw/`.
+2. **Select Chip Tile Size**:
    - `160 x 160 px`
    - `320 x 320 px`
-   - `640 x 640 px` (standar Roboflow / YOLO)
+   - `640 x 640 px` (standard YOLO & Roboflow format)
    - `1280 x 1280 px`
-3. **Tentukan Jumlah Batch Task**: Tentukan berapa banyak chip dalam tiap folder task (misal: `5`, `10`, atau `20` chip per task).
-4. **Proses Chipping**:
-   - Sistem memotong citra secara merata, mengabaikan area kosong/nodata (`>70% valid pixel threshold`), dan menyimpannya sebagai PNG di `data/chips/<nama_raster>/task*/`.
-   - Menghasilkan file georeferensi `manifest.json`.
-5. **Pilihan Upload Roboflow**:
-   - **Upload Sekarang**: Pilih/konfirmasi project Roboflow tujuan, dan kirim task batch langsung ke Roboflow.
-   - **Simpan Lokal Saja**: Selesai tanpa upload, hasil potongan tetap tersimpan rapi di folder lokal.
+3. **Specify Chips per Task**: Determine how many tiles are bundled in each task batch folder (e.g., `5`, `10`, or `20`).
+4. **Chipping Execution**:
+   - Slices the raster across a grid, filters out empty/nodata regions (`>70% valid pixel threshold`), and exports chips to `data/chips/<raster_stem>/task*/`.
+   - Generates geographic coordinates index in `manifest.json`.
+5. **Roboflow Upload Selection**:
+   - **Upload Now**: Confirms the target Roboflow project and sends batches for annotator assignment.
+   - **Save Locally Only**: Completes the process without uploading.
 
 ---
 
-## 📜 Spesifikasi Manifest (`manifest.json`)
+## 📜 Manifest Specification (`manifest.json`)
 
-Setiap proses pemotongan menghasilkan `manifest.json` yang mencatat koordinat geografis WGS84 untuk setiap chip:
+Each chipping execution creates a standardized `manifest.json` indexing WGS84 geographic bounding boxes and pixel offsets for every tile:
 
 ```json
 {
@@ -263,7 +351,7 @@ Setiap proses pemotongan menghasilkan `manifest.json` yang mencatat koordinat ge
 
 ## 💻 Headless / Scripting Usage
 
-Bagi pengguna yang ingin menjalankan perintah via skrip atau CI/CD otomatis tanpa prompt interaktif:
+For automated scripts and background tasks without interactive terminal prompts:
 
 ```bash
 # Workflow 1: Download via standalone script

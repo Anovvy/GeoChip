@@ -6,7 +6,6 @@ similar to Antigravity and Claude Code CLI tools.
 
 import os
 import sys
-import shutil
 
 # ANSI Color Codes
 RESET = "\033[0m"
@@ -26,8 +25,16 @@ BG_BLUE = "\033[44m"
 
 
 def enable_windows_ansi():
-    """Enable ANSI virtual terminal processing on Windows consoles."""
+    """Enable ANSI virtual terminal processing and UTF-8 encoding on Windows consoles."""
     if os.name == "nt":
+        try:
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            if hasattr(sys.stderr, "reconfigure"):
+                sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
         try:
             import ctypes
             kernel32 = ctypes.windll.kernel32
@@ -127,7 +134,7 @@ def read_key():
         return _get_key_posix()
 
 
-def select(title, choices, default_index=0, help_text="Gunakan panah ↑/↓ untuk memilih, Tekan ENTER untuk konfirmasi"):
+def select(title, choices, default_index=0, help_text="Use ↑/↓ arrow keys to navigate, press ENTER to confirm"):
     """
     Interactive select menu with arrow keys, highlight cursor, and clean re-rendering.
     Falls back to numbered input if running in non-interactive environment.
@@ -140,7 +147,7 @@ def select(title, choices, default_index=0, help_text="Gunakan panah ↑/↓ unt
             print(f"  [{idx}] {label}")
         while True:
             try:
-                raw = input(f"Pilih [1-{len(choices)}] (default {default_index+1}): ").strip()
+                raw = input(f"Select [1-{len(choices)}] (default {default_index+1}): ").strip()
                 if not raw:
                     return default_index
                 val = int(raw) - 1
@@ -148,7 +155,7 @@ def select(title, choices, default_index=0, help_text="Gunakan panah ↑/↓ unt
                     return val
             except (ValueError, KeyboardInterrupt):
                 pass
-            print(f"{RED}Pilihan tidak valid, coba lagi.{RESET}")
+            print(f"{RED}Invalid choice, please try again.{RESET}")
 
     current_idx = default_index
     num_choices = len(choices)
@@ -199,7 +206,7 @@ def select(title, choices, default_index=0, help_text="Gunakan panah ↑/↓ unt
             # Print final selection cleanly
             chosen = choices[current_idx]
             chosen_label = chosen if isinstance(chosen, str) else chosen.get("name", str(chosen))
-            print(f"  {BRIGHT_GREEN}✔ Terpilih: {BOLD}{chosen_label}{RESET}")
+            print(f"  {BRIGHT_GREEN}✔ Selected: {BOLD}{chosen_label}{RESET}")
             return current_idx
         elif key.isdigit():
             digit = int(key) - 1
@@ -208,7 +215,7 @@ def select(title, choices, default_index=0, help_text="Gunakan panah ↑/↓ unt
                 clear_lines(lines_to_clear)
                 chosen = choices[current_idx]
                 chosen_label = chosen if isinstance(chosen, str) else chosen.get("name", str(chosen))
-                print(f"  {BRIGHT_GREEN}✔ Terpilih: {BOLD}{chosen_label}{RESET}")
+                print(f"  {BRIGHT_GREEN}✔ Selected: {BOLD}{chosen_label}{RESET}")
                 return current_idx
             clear_lines(lines_to_clear)
         else:
@@ -244,12 +251,12 @@ def prompt_number(message, default=None, min_val=None, max_val=None, is_float=Fa
         try:
             num = float(v) if is_float else int(v)
             if min_val is not None and num < min_val:
-                return False, f"Nilai minimal adalah {min_val}"
+                return False, f"Minimum allowed value is {min_val}"
             if max_val is not None and num > max_val:
-                return False, f"Nilai maksimal adalah {max_val}"
+                return False, f"Maximum allowed value is {max_val}"
             return True, ""
         except ValueError:
-            return False, "Input harus berupa angka yang valid"
+            return False, "Input must be a valid number"
 
     raw = prompt_input(message, default=default, validator=validator)
     return float(raw) if is_float else int(raw)
@@ -259,7 +266,7 @@ def prompt_confirm(message, default=True):
     """Prompt user for Yes/No confirmation."""
     def_str = "Y/n" if default else "y/N"
     raw = prompt_input(f"{message} [{def_str}]", default="y" if default else "n").lower()
-    return raw in ("y", "yes", "ya")
+    return raw in ("y", "yes")
 
 
 def print_step(title):
