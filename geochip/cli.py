@@ -28,12 +28,12 @@ def interactive_main_menu():
 
     main_menu_choices = [
         {
-            "name": "📥 Workflow 1: Download Satellite Imagery (Earth Engine)",
+            "name": "📥 Step 1: Download Satellite Imagery (Earth Engine)",
             "desc": "Select AOI, Dataset, Date Range, Cloud Filter, Scene Listing, Single/Composite",
             "action": "download",
         },
         {
-            "name": "✂️  Workflow 2: Chipping & Upload to Roboflow",
+            "name": "✂️ Step 2: Chipping & Upload to Roboflow",
             "desc": "Select Raw Raster, Chip Size (160/320/640/1280 px), Task Batching, Roboflow Upload",
             "action": "chip",
         },
@@ -51,7 +51,7 @@ def interactive_main_menu():
 
     while True:
         idx = select(
-            "Select Workflow to Execute:",
+            "Select Step to Execute:",
             main_menu_choices,
             default_index=0
         )

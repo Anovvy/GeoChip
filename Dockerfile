@@ -7,7 +7,9 @@ FROM python:3.11-slim
 # Prevent Python from writing .pyc files and buffer stdout/stderr
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive
+    PYTHONIOENCODING=utf-8 \
+    DEBIAN_FRONTEND=noninteractive \
+    GEOCHIP_DOCKER=1
 
 # Install essential system dependencies and geospatial libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \

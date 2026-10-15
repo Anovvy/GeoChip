@@ -105,19 +105,18 @@ def mask_clouds(image, dataset_key):
             qa.bitwiseAnd(cloud_bit_mask).eq(0)
             .And(qa.bitwiseAnd(cirrus_bit_mask).eq(0))
         )
-        if "SCL" in image.bandNames().getInfo():
-            scl = image.select("SCL")
-            # 1: defective, 3: cloud shadow, 8: cloud med, 9: cloud high, 10: cirrus, 11: snow
-            scl_mask = (
-                scl.neq(1)
-                .And(scl.neq(3))
-                .And(scl.neq(8))
-                .And(scl.neq(9))
-                .And(scl.neq(10))
-                .And(scl.neq(11))
-            )
-            return image.updateMask(mask).updateMask(scl_mask)
-        return image.updateMask(mask)
+        # SCL (Scene Classification Layer) cloud/shadow mask
+        scl = image.select("SCL")
+        # 1: defective, 3: cloud shadow, 8: cloud med, 9: cloud high, 10: cirrus, 11: snow
+        scl_mask = (
+            scl.neq(1)
+            .And(scl.neq(3))
+            .And(scl.neq(8))
+            .And(scl.neq(9))
+            .And(scl.neq(10))
+            .And(scl.neq(11))
+        )
+        return image.updateMask(mask).updateMask(scl_mask)
 
     elif dataset_key in ("landsat-8", "landsat-9"):
         # Landsat Collection 2 QA_PIXEL mask

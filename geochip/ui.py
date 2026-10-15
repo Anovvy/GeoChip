@@ -6,6 +6,7 @@ similar to Antigravity and Claude Code CLI tools.
 
 import os
 import sys
+import shutil
 
 # ANSI Color Codes
 RESET = "\033[0m"
@@ -134,6 +135,15 @@ def read_key():
         return _get_key_posix()
 
 
+def _fit_text(text, max_len):
+    """Truncate text to max_len with ellipsis if it exceeds width."""
+    if not text:
+        return ""
+    if len(text) > max_len:
+        return text[:max(0, max_len - 3)] + "..."
+    return text
+
+
 def select(title, choices, default_index=0, help_text="Use ↑/↓ arrow keys to navigate, press ENTER to confirm"):
     """
     Interactive select menu with arrow keys, highlight cursor, and clean re-rendering.
@@ -159,67 +169,89 @@ def select(title, choices, default_index=0, help_text="Use ↑/↓ arrow keys to
 
     current_idx = default_index
     num_choices = len(choices)
+    has_any_desc = any(isinstance(c, dict) and bool(c.get("desc")) for c in choices)
 
     # Initial render
     print(f"\n{BOLD}{BRIGHT_CYAN}? {title}{RESET}")
     if help_text:
         print(f"  {DIM}{help_text}{RESET}")
 
-    lines_to_clear = num_choices
+    # Lines to clear: 1 per choice, plus 2 lines for description area if applicable
+    lines_to_clear = num_choices + (2 if has_any_desc else 0)
 
-    while True:
-        # Print choices
-        for idx, item in enumerate(choices):
-            if isinstance(item, dict):
-                label = item.get("name", str(item))
-                desc = item.get("desc", "")
-            else:
-                label = str(item)
-                desc = ""
+    # Hide cursor while interactive menu is active
+    sys.stdout.write("\033[?25l")
+    sys.stdout.flush()
 
-            if idx == current_idx:
-                prefix = f"{BRIGHT_CYAN}❯ [{idx+1}]{RESET} {BOLD}{WHITE}{label}{RESET}"
+    try:
+        while True:
+            cols = shutil.get_terminal_size(fallback=(80, 24)).columns
+            # Ensure label never exceeds terminal width (leaving margin for prefix "  ❯ [99] ")
+            max_label_width = max(20, cols - 12)
+
+            # Print choices (guaranteed strictly <= cols - 2 printable chars to prevent any wrapping)
+            for idx, item in enumerate(choices):
+                if isinstance(item, dict):
+                    raw_label = item.get("name", str(item))
+                else:
+                    raw_label = str(item)
+
+                label = _fit_text(raw_label, max_label_width)
+
+                if idx == current_idx:
+                    prefix = f"  {BRIGHT_CYAN}❯ [{idx+1}]{RESET} {BOLD}{WHITE}{label}{RESET}"
+                else:
+                    prefix = f"  {DIM}  [{idx+1}] {label}{RESET}"
+                print(prefix)
+
+            # Print dedicated description status line for the selected choice
+            if has_any_desc:
+                max_desc_width = max(20, cols - 8)
+                curr_item = choices[current_idx]
+                raw_desc = curr_item.get("desc", "") if isinstance(curr_item, dict) else ""
+                desc = _fit_text(raw_desc, max_desc_width) if raw_desc else ""
+                print()  # Empty line separator
                 if desc:
-                    prefix += f"  {DIM}({desc}){RESET}"
-                print(f"  {prefix}")
-            else:
-                prefix = f"{DIM}  [{idx+1}] {label}{RESET}"
-                if desc:
-                    prefix += f"  {DIM}({desc}){RESET}"
-                print(f"  {prefix}")
+                    print(f"  {CYAN}ℹ {desc}{RESET}")
+                else:
+                    print(f"  {DIM}ℹ (No additional description){RESET}")
 
-        # Wait for key
-        try:
-            key = read_key()
-        except KeyboardInterrupt:
-            print("\n")
-            sys.exit(0)
+            # Wait for key
+            try:
+                key = read_key()
+            except KeyboardInterrupt:
+                print("\n")
+                sys.exit(0)
 
-        if key in ("UP", "k", "K"):
-            current_idx = (current_idx - 1) % num_choices
-            clear_lines(lines_to_clear)
-        elif key in ("DOWN", "j", "J"):
-            current_idx = (current_idx + 1) % num_choices
-            clear_lines(lines_to_clear)
-        elif key == "ENTER":
-            clear_lines(lines_to_clear)
-            # Print final selection cleanly
-            chosen = choices[current_idx]
-            chosen_label = chosen if isinstance(chosen, str) else chosen.get("name", str(chosen))
-            print(f"  {BRIGHT_GREEN}✔ Selected: {BOLD}{chosen_label}{RESET}")
-            return current_idx
-        elif key.isdigit():
-            digit = int(key) - 1
-            if 0 <= digit < num_choices:
-                current_idx = digit
+            if key in ("UP", "k", "K"):
+                current_idx = (current_idx - 1) % num_choices
                 clear_lines(lines_to_clear)
+            elif key in ("DOWN", "j", "J"):
+                current_idx = (current_idx + 1) % num_choices
+                clear_lines(lines_to_clear)
+            elif key == "ENTER":
+                clear_lines(lines_to_clear)
+                # Print final selection cleanly
                 chosen = choices[current_idx]
                 chosen_label = chosen if isinstance(chosen, str) else chosen.get("name", str(chosen))
                 print(f"  {BRIGHT_GREEN}✔ Selected: {BOLD}{chosen_label}{RESET}")
                 return current_idx
-            clear_lines(lines_to_clear)
-        else:
-            clear_lines(lines_to_clear)
+            elif key.isdigit():
+                digit = int(key) - 1
+                if 0 <= digit < num_choices:
+                    current_idx = digit
+                    clear_lines(lines_to_clear)
+                    chosen = choices[current_idx]
+                    chosen_label = chosen if isinstance(chosen, str) else chosen.get("name", str(chosen))
+                    print(f"  {BRIGHT_GREEN}✔ Selected: {BOLD}{chosen_label}{RESET}")
+                    return current_idx
+                clear_lines(lines_to_clear)
+            else:
+                clear_lines(lines_to_clear)
+    finally:
+        # Always restore cursor visibility
+        sys.stdout.write("\033[?25h")
+        sys.stdout.flush()
 
 
 def prompt_input(message, default=None, validator=None):

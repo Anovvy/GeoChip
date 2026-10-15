@@ -16,6 +16,8 @@ data/raw/*
 !data/raw/.gitkeep
 data/chips/*
 !data/chips/.gitkeep
+data/aoi/*
+!data/aoi/.gitkeep
 tests
 .pytest_cache
 *.egg-info

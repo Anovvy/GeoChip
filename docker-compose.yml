@@ -8,12 +8,13 @@ services:
     stdin_open: true # Allows interactive keypresses (arrow keys / Enter)
     tty: true        # Allocates pseudo-TTY for ANSI colors and live UI
     volumes:
-      # Mount data directories to persist AOIs, raw GeoTIFFs, and output chips
+      # Mount data directories to persist AOIs, raw GeoTIFFs, output chips, and credentials
       - ./data:/app/data
-      # Mount environment variables (.env) if present
-      - ./.env:/app/.env
       # Mount Google Earth Engine host credentials cache for seamless authentication
       - ~/.config/earthengine:/root/.config/earthengine
+      # Mount package code for live updates without container rebuild
+      - ./geochip:/app/geochip
     environment:
       - PYTHONUNBUFFERED=1
-    command: python main.py
+      - PYTHONIOENCODING=utf-8
+      - GEOCHIP_DOCKER=1

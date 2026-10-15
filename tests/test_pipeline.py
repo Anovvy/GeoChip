@@ -30,6 +30,7 @@ def test_cli_help_commands():
         [sys.executable, "create_chips.py", "--help"],
         [sys.executable, "upload_roboflow.py", "--help"],
         [sys.executable, "auth_setup.py", "--help"],
+        [sys.executable, "run_docker.py", "--help"],
     ]
     for cmd in commands:
         result = subprocess.run(cmd, capture_output=True, text=True)

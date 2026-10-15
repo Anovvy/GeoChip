@@ -8,7 +8,7 @@ version = "2.0.0"
 description = "Interactive CLI pipeline for multi-satellite imagery ingestion, single-raster chipping, and Roboflow annotation."
 readme = "README.md"
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "GeoChip Contributors"}
 ]
@@ -26,3 +26,8 @@ dependencies = [
 
 [project.scripts]
 geochip = "geochip.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["geochip*"]
+exclude = ["data*", "tests*"]

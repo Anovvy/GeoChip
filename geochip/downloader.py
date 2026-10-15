@@ -135,9 +135,9 @@ def fetch_scenes_list(collection_id, aoi_geom, start_date, end_date, cloud_prop=
 
 def interactive_download_workflow():
     """
-    Interactive Workflow 1: Download Satellite Imagery from Google Earth Engine.
+    Interactive Step 1: Download Satellite Imagery from Google Earth Engine.
     """
-    print_step("Workflow 1: Download Satellite Imagery (Earth Engine)")
+    print_step("Step 1: Download Satellite Imagery (Earth Engine)")
 
     # 1. Check Authentication
     if not init_earth_engine():

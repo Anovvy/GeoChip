@@ -47,21 +47,12 @@ def get_roboflow_credentials():
 
 
 def save_credentials_to_env(api_key, workspace_id, project_id):
-    """Save provided credentials to local .env file."""
-    env_lines = []
-    if os.path.exists(".env"):
-        with open(".env", "r") as f:
-            for line in f:
-                if not any(line.startswith(k) for k in ["ROBOFLOW_API_KEY=", "ROBOFLOW_WORKSPACE=", "ROBOFLOW_PROJECT="]):
-                    env_lines.append(line.rstrip())
-
-    env_lines.append(f"ROBOFLOW_API_KEY={api_key}")
-    env_lines.append(f"ROBOFLOW_WORKSPACE={workspace_id}")
-    env_lines.append(f"ROBOFLOW_PROJECT={project_id}")
-
-    with open(".env", "w") as f:
-        f.write("\n".join(env_lines) + "\n")
-    print_success("Roboflow credentials saved to '.env'")
+    """Save provided credentials to local environment configuration."""
+    from .auth import save_env_variable
+    save_env_variable("ROBOFLOW_API_KEY", api_key)
+    save_env_variable("ROBOFLOW_WORKSPACE", workspace_id)
+    save_env_variable("ROBOFLOW_PROJECT", project_id)
+    print_success("Roboflow credentials saved successfully")
 
 
 def upload_chips_to_roboflow(

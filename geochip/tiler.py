@@ -218,15 +218,15 @@ def create_single_raster_chips(
 
 def interactive_chipping_workflow():
     """
-    Interactive Workflow 2: Chipping & Upload to Roboflow.
+    Interactive Step 2: Chipping & Upload to Roboflow.
     """
-    print_step("Workflow 2: Chipping & Upload to Roboflow")
+    print_step("Step 2: Chipping & Upload to Roboflow")
 
     # 1. Select Raster from data/raw
     raw_files = list_available_raw_rasters()
     if not raw_files:
         print_error("No GeoTIFF rasters (.tif) found in 'data/raw/'!")
-        print_info("Please run Workflow 1 (Download Data) first, or place your .tif raster in 'data/raw/'.")
+        print_info("Please run Step 1 (Download Data) first, or place your .tif raster in 'data/raw/'.")
         return
 
     raster_choices = [

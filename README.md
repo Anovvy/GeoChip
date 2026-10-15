@@ -1,4 +1,4 @@
-# 🛰️ GeoChip
+# GeoChip
 
 <p align="center">
   <b>Interactive Geospatial Pipeline for Multi-Satellite Earth Observation Ingestion, Single-Raster Chipping, and Roboflow Annotation Batches</b>
@@ -6,11 +6,10 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-blue.svg" alt="Python Versions">
-  <img src="https://img.shields.io/badge/Docker-Container_Ready-2496ED.svg?logo=docker&logoColor=white" alt="Docker">
+  <img src="https://img.shields.io/badge/Containerization-Docker-2496ED.svg?" alt="Docker">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
-  <img src="https://img.shields.io/badge/Google_Earth_Engine-Interactive_Auth-red.svg" alt="Earth Engine">
   <img src="https://img.shields.io/badge/Satellites-Sentinel--2_|_Landsat_|_Sentinel--1_SAR_|_MODIS_|_DEM-orange.svg" alt="Multi-Satellite">
-  <img src="https://img.shields.io/badge/Roboflow-Annotation_Pipeline-purple.svg" alt="Roboflow">
+  <img src="https://img.shields.io/badge/Annotation-Roboflow-purple.svg" alt="Roboflow">
 </p>
 
 ```text
@@ -26,13 +25,13 @@
 
 ---
 
-## 📌 Overview
+## Overview
 
 **GeoChip** is a production-ready geospatial data preparation and computer vision pipeline designed for remote sensing engineers, geospatial data scientists, and ML practitioners. 
 
-GeoChip features an interactive terminal user interface (inspired by modern developer tools like Antigravity and Claude Code) allowing users to discover, filter, composite, download, tile, and upload satellite data directly into computer vision annotation pipelines—either on a local machine or inside an isolated **Docker** container.
+GeoChip features an interactive terminal user interface allowing users to discover, filter, composite, download, tile, and upload satellite data directly into computer vision annotation pipelines either on a local machine or inside an isolated **Docker** container.
 
-### 🌟 Key Highlights
+### Key Highlights
 
 - **Interactive Terminal Experience**: Seamless arrow-key navigation (`↑/↓` + `Enter`), dynamic status banners, and guided prompts for selecting datasets, dates, thresholds, and workflows.
 - **Multi-Sensor Earth Observation Catalog**:
@@ -52,11 +51,11 @@ GeoChip features an interactive terminal user interface (inspired by modern deve
 
 ---
 
-## 🏗️ Architecture & Pipeline Flow
+## Architecture & Pipeline Flow
 
 ```mermaid
 flowchart TD
-    subgraph W1[Workflow 1: Download Satellite Imagery]
+    subgraph W1[Step 1: Download Satellite Imagery]
         A[AOI Shapefile\ndata/aoi/*.shp] --> B[Select Dataset\nS2 / L8 / L9 / S1 SAR / MODIS / DEM]
         B --> C[Date Range & Cloud Cover Filter]
         C --> D[Query GEE & Display Scene List]
@@ -66,7 +65,7 @@ flowchart TD
         E2 --> F
     end
 
-    subgraph W2[Workflow 2: Chipping & Roboflow Upload]
+    subgraph W2[Step 2: Chipping & Roboflow Upload]
         F --> G[Select Chip Size\n160 / 320 / 640 / 1280 px]
         G --> H[Specify Task Batch Size\ne.g., 5 chips per task]
         H --> I[Chipping Engine & manifest.json\ndata/chips/<raster>/task*/]
@@ -78,7 +77,7 @@ flowchart TD
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```text
 GeoChip/
@@ -87,7 +86,7 @@ GeoChip/
 │       ├── ci.yml              # CI: Linting & offline unit tests across Python 3.10-3.12
 │       └── docker-publish.yml  # CD: Automated Docker image build and push to GHCR
 ├── data/
-│   ├── aoi/                    # ESRI Shapefiles defining Areas of Interest (AOI)
+│   ├── aoi/                    # User-supplied ESRI Shapefiles (.shp, .shx, .dbf, .prj)
 │   ├── raw/                    # Downloaded GeoTIFF rasters (gitignored)
 │   └── chips/                  # Tiled image chips & manifest.json (gitignored)
 ├── geochip/                    # Core Python package
@@ -102,9 +101,10 @@ GeoChip/
 ├── tests/
 │   └── test_pipeline.py        # Offline unit & integration tests (dummy synthetic rasters)
 ├── main.py                     # Primary interactive CLI entry point
+├── run_docker.py               # Automated Docker runner (checks/starts Docker Desktop)
 ├── auth_setup.py               # Standalone runner for credentials setup
-├── download_data.py            # Standalone runner for Workflow 1 (Download)
-├── create_chips.py             # Standalone runner for Workflow 2 (Chipping)
+├── download_data.py            # Standalone runner for Step 1 (Download)
+├── create_chips.py             # Standalone runner for Step 2 (Chipping)
 ├── upload_roboflow.py          # Standalone runner for Roboflow batch upload
 ├── Dockerfile                  # Container definition with GDAL system libraries
 ├── docker-compose.yml          # Docker Compose with volume mounts & interactive TTY
@@ -118,20 +118,16 @@ GeoChip/
 
 ---
 
-## ⚡ Quickstart
+## Quickstart
 
-You can run GeoChip using either **Method 1 (Docker - Recommended)** to avoid installing geospatial C++ libraries on your host system, or **Method 2 (Local Python Environment)**.
+GeoChip runs inside a pre-configured Docker container to ensure all underlying geospatial C++ libraries (`GDAL`, `PROJ`, `GEOS`) execute without system conflicts across Windows, macOS, and Linux.
 
----
+### 1. Install Docker Desktop
 
-### Method 1: Using Docker (Recommended)
-
-Docker isolates all underlying geospatial dependencies (GDAL, PROJ, GEOS) inside a pre-configured Linux container.
-
-#### Beginner Setup Guide for Docker Desktop
+If Docker Desktop is not yet installed on your system, follow the guide below:
 
 <details>
-<summary><b> Click here for Windows Setup Guide</b></summary>
+<summary><b>Click here for Windows Setup Guide</b></summary>
 
 Follow these steps if you are setting up Docker Desktop on Windows for the first time:
 
@@ -154,13 +150,13 @@ Follow these steps if you are setting up Docker Desktop on Windows for the first
    - When Docker Desktop launches, an account is **not required** for local usage.
    - Click **"Continue without signing in"** (or "Skip") and dismiss the survey.
 5. **Keep Docker Desktop Running:**
-   - Docker Desktop must be running (green whale icon in the Windows taskbar system tray) when executing GeoChip.
+   - Docker Desktop must be running when executing GeoChip.
    - *Tip:* Go to **Settings (Gear Icon) > General** and check **"Start Docker Desktop when you log in"**.
 
 </details>
 
 <details>
-<summary><b> Click here for macOS Setup Guide</b></summary>
+<summary><b>Click here for macOS Setup Guide</b></summary>
 
 Follow these steps for macOS:
 
@@ -176,93 +172,121 @@ Follow these steps for macOS:
 
 </details>
 
+<details>
+<summary><b>Click here for Linux Setup Guide</b></summary>
+
+Follow these steps for Linux (Ubuntu, Debian, Fedora, Arch, etc.):
+
+**Option A: Native Docker Engine (Recommended for Linux):**
+1. Install Docker using the official automated script:
+   ```bash
+   curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh
+   ```
+2. Add your current user to the `docker` group so you can run Docker without `sudo`:
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+3. Activate the new group membership (or log out and log back in):
+   ```bash
+   newgrp docker
+   ```
+4. Start and enable the Docker system service:
+   ```bash
+   sudo systemctl enable --now docker
+   ```
+
+**Option B: Docker Desktop for Linux:**
+1. Download the `.deb` or `.rpm` package from the [Official Docker Desktop for Linux Guide](https://docs.docker.com/desktop/setup/install/linux/).
+2. Install the package using your package manager:
+   ```bash
+   # Debian / Ubuntu:
+   sudo apt-get install ./docker-desktop-<version>-<arch>.deb
+   ```
+3. Launch Docker Desktop from your application menu or run:
+   ```bash
+   systemctl --user start docker-desktop
+   ```
+
+</details>
+
 ---
 
-#### Running with Docker Compose
+### 2. Launch GeoChip
 
-With Docker Desktop running, open a terminal in the cloned repository directory and execute:
-
-```bash
-docker compose run --rm geochip
-```
-
-> [!TIP]
-> The provided [docker-compose.yml](file:///c:/Users/bayun/OneDrive/Documents/GitHub/GeoChip/docker-compose.yml) is pre-configured with:
-> - **Volume Mount `./data:/app/data`**: All input AOIs, downloaded GeoTIFFs, and generated chips persist directly on your host machine.
-> - **Shared GEE Credentials**: Mounts `~/.config/earthengine` from your host machine so you do not need to re-authenticate inside the container.
-> - **Interactive TTY**: Enables keyboard navigation (`↑/↓` arrows, Enter) and ANSI colors inside Docker.
-
-Alternatively, running with standard Docker commands:
-```bash
-# Build image
-docker build -t geochip .
-
-# Run interactively
-docker run -it --rm -v ${PWD}/data:/app/data geochip
-```
-
----
-
-### Method 2: Using Local Python Environment
-
-If you prefer to run directly on your host machine:
+To launch the interactive application, open your terminal in the cloned repository directory and run:
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/<your-username>/GeoChip.git
-cd GeoChip
-
-# 2. Create virtual environment (Python 3.10 - 3.12)
-python -m venv .venv
-
-# 3. Activate virtual environment
-# Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# Linux / macOS:
-source .venv/bin/activate
-
-# 4. Install dependencies
-pip install -r requirements.txt
-
-# (Optional) Install in editable mode to enable the 'geochip' CLI command
-pip install -e .
-
-# 5. Launch GeoChip
 python main.py
 ```
 
----
-
-## 🔑 Authentication & Credentials Setup
-
-GeoChip connects to **Google Earth Engine (GEE)** and **Roboflow**. Both can be configured directly through the terminal UI.
-
-### Configuring Credentials via Terminal UI (Recommended)
-You can configure and verify all credentials without editing files manually:
-1. Run `python main.py` and select **`🔑 Setup Credentials & Authentication`**.
-2. **Google Earth Engine Login**: Opens your web browser automatically to authenticate your Google account and caches the token locally in `~/.config/earthengine`.
-3. **Roboflow Setup**: Prompts for your Private API Key, Workspace Slug, and Project ID, saving them securely to `.env`.
-4. **Test Connections**: Validates that both services are accessible and authenticated.
-
-### Manual Configuration via `.env` (Alternative)
-Copy the template [`.env.example`](file:///c:/Users/bayun/OneDrive/Documents/GitHub/GeoChip/.env.example) to `.env`:
-```bash
-cp .env.example .env
-```
-Fill in your credentials:
-```env
-EE_PROJECT_ID=my-gcp-project-id
-ROBOFLOW_API_KEY=your_private_api_key_here
-ROBOFLOW_WORKSPACE=my-workspace-slug
-ROBOFLOW_PROJECT=satellite-object-detection
-```
-
-> [!NOTE]
-> The `.env` file is automatically ignored by `.gitignore` to prevent confidential keys from being committed to source control.
+> **Automated Docker Desktop Detection & First-Run Setup**:
+> When you run `python main.py`, GeoChip performs complete zero-config checks:
+> 1. **Engine Check**: If Docker Desktop is closed, GeoChip automatically launches Docker Desktop in the background and waits for it to become ready.
+> 2. **Image Check**: If the Docker image (`geochip:latest`) is not yet present on your device, GeoChip automatically builds the image for you before launching.
+> 3. **Interactive Session**: GeoChip starts the interactive terminal UI with all your host `data/` directories and credentials mounted seamlessly.
 
 ---
 
-## 🚀 Interactive CLI Walkthrough
+## Authentication & Credentials Setup
+
+GeoChip connects to **Google Earth Engine (GEE)** and **Roboflow**. All credentials are configured interactively through the terminal UI—no manual file editing required.
+
+### Configuring Credentials via Terminal UI
+
+1. Launch GeoChip and select **`[3] 🔑 Setup Credentials & Authentication`** from the main menu:
+   ```bash
+   python main.py
+   ```
+
+2. **Google Earth Engine Login (Browser OAuth)**:
+   - Select `🌐 Google Earth Engine Login (Browser OAuth)`.
+   - The CLI displays a Google authentication link. Open it in your browser, select your Google account, and copy the verification code.
+   - Paste the verification code into the terminal prompt.
+   - Enter your associated Google Cloud Project ID (e.g., `my-gee-project-123`).
+     - *Where to find your Project ID:* Check the [Google Cloud Console](https://console.cloud.google.com/welcome) or your [Earth Engine Code Editor](https://code.earthengine.google.com/).
+     - *Project Registration:* Ensure your GCP project is registered for Earth Engine access (free for non-commercial/research use) at the [Earth Engine Cloud Configuration Page](https://console.cloud.google.com/earth-engine/configuration).
+   - Credentials are automatically cached to `~/.config/earthengine` and shared with the Docker container via volume mounting.
+
+3. **Roboflow Setup**:
+   - Select `🤖 Setup Roboflow API Credentials`.
+   - The CLI will prompt you to enter your **Private API Key**, **Workspace ID / Slug**, and **Target Project ID**.
+   - These are saved securely to your local `.env` file (gitignored).
+
+4. **Test Connections & Diagnostics**:
+   - Select `🔍 Test Connections & Diagnostic Status` to run a live health check confirming connectivity to both Earth Engine and Roboflow.
+
+---
+
+### How to Obtain Your Roboflow Credentials
+
+If you do not know where to find your Roboflow credentials, follow this quick guide:
+
+1. **Roboflow Private API Key**:
+   - Log in to your [Roboflow Dashboard](https://app.roboflow.com).
+   - In the navigation menu, click your account or workspace avatar > **Settings**.
+   - Select **Roboflow API** (or **Workspaces** > select workspace > **Roboflow API**).
+   - Under **Private API Key**, click **Show** or **Copy**. *(Keep this secret; it allows downloading and uploading to your datasets).*
+
+2. **Workspace ID / Slug**:
+   - In your browser, navigate to your workspace or any project within it.
+   - Look at the URL in your browser's address bar:
+     ```text
+     https://app.roboflow.com/<your-workspace-slug>/...
+     ```
+   - The text immediately after `app.roboflow.com/` is your **Workspace Slug** (for example: `satellite-vision-lab`).
+
+3. **Target Project ID**:
+   - Click on the project where you want to upload satellite imagery chips for labeling.
+   - Look at the browser URL:
+     ```text
+     https://app.roboflow.com/<your-workspace-slug>/<your-project-id>/...
+     ```
+   - The segment after your workspace slug is your **Project ID** (for example: `port-vessel-detection`).
+
+---
+
+## Interactive CLI Walkthrough
 
 Launch the application:
 ```bash
@@ -272,17 +296,26 @@ python main.py
 The interactive menu will display:
 
 ```text
-? Select Workflow to Execute:
-  ❯ [1] 📥 Workflow 1: Download Satellite Imagery (Earth Engine)
-    [2] ✂️  Workflow 2: Chipping & Upload to Roboflow
+? Select Step to Execute:
+  ❯ [1] 📥 Step 1: Download Satellite Imagery (Earth Engine)
+    [2] ✂️ Step 2: Chipping & Upload to Roboflow
     [3] 🔑 Setup Credentials & Authentication
     [4] ❌ Exit
 ```
 
 ---
 
-### 📥 Workflow 1: Download Satellite Imagery
-1. **Select AOI**: Automatically detects shapefiles in `data/aoi/` (e.g., `AOI-1.shp`).
+### Step 1: Download Satellite Imagery
+
+1. **Prepare and Select AOI (Area of Interest)**:
+   - Place your custom ESRI Shapefile inside `data/aoi/`.
+   - **Required Shapefile Components**: A valid shapefile requires four companion files with the exact same base name:
+     - `<name>.shp` — Feature geometry
+     - `<name>.shx` — Spatial index
+     - `<name>.dbf` — Attribute table
+     - `<name>.prj` — Coordinate Reference System (CRS) projection info (WGS84 / EPSG:4326 recommended)
+   - *How to create an AOI:* Draw your target boundary on [geojson.io](https://geojson.io) or export a polygon layer from **QGIS** / **ArcGIS** as an ESRI Shapefile.
+   - GeoChip automatically scans `data/aoi/` and displays all discovered shapefiles in the terminal menu.
 2. **Select Satellite Dataset**:
    - `Copernicus Sentinel-2 L2A (10m)`
    - `USGS Landsat 9 OLI-2 / TIRS-2 C2 L2 (30m)`
@@ -304,7 +337,7 @@ The interactive menu will display:
 
 ---
 
-### ✂️ Workflow 2: Chipping & Upload to Roboflow
+### Step 2: Chipping & Upload to Roboflow
 1. **Select Raw Raster**: Choose any GeoTIFF raster located in `data/raw/`.
 2. **Select Chip Tile Size**:
    - `160 x 160 px`
@@ -321,7 +354,7 @@ The interactive menu will display:
 
 ---
 
-## 📜 Manifest Specification (`manifest.json`)
+## Manifest Specification (`manifest.json`)
 
 Each chipping execution creates a standardized `manifest.json` indexing WGS84 geographic bounding boxes and pixel offsets for every tile:
 
@@ -349,15 +382,15 @@ Each chipping execution creates a standardized `manifest.json` indexing WGS84 ge
 
 ---
 
-## 💻 Headless / Scripting Usage
+## Headless / Scripting Usage
 
 For automated scripts and background tasks without interactive terminal prompts:
 
 ```bash
-# Workflow 1: Download via standalone script
+# Step 1: Download via standalone script
 python download_data.py
 
-# Workflow 2: Chipping via standalone script
+# Step 2: Chipping via standalone script
 python create_chips.py --raster data/raw/sentinel-2_AOI-1_median.tif --chip-size 640 --chips-per-task 5
 
 # Upload via standalone script
@@ -366,6 +399,6 @@ python upload_roboflow.py --chips-dir data/chips/sentinel-2_AOI-1/
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the [MIT License](LICENSE).
